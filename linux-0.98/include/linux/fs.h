@@ -111,7 +111,7 @@ struct buffer_head {
 struct inode {
 	dev_t		i_dev;
 	unsigned long	i_ino;
-	umode_t		i_mode;
+	umode_t		i_mode; // S_IFSOCK
 	nlink_t		i_nlink;
 	uid_t		i_uid;
 	gid_t		i_gid;

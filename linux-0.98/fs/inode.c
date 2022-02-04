@@ -12,6 +12,7 @@
 
 #include <asm/system.h>
 
+// 系统inode数组，未使用资源池
 struct inode inode_table[NR_INODE]={{0,},};
 
 static inline void wait_on_inode(struct inode * inode)
@@ -149,9 +150,11 @@ repeat:
 	return;
 }
 
+// 从inode数组获取一个空闲的inode结构体
 struct inode * get_empty_inode(void)
 {
 	struct inode * inode;
+	// 从空闲inode数组最开始查找
 	static struct inode * last_inode = inode_table;
 	int i;
 
@@ -159,7 +162,7 @@ struct inode * get_empty_inode(void)
 		inode = NULL;
 		for (i = NR_INODE; i ; i--) {
 			if (++last_inode >= inode_table + NR_INODE)
-				last_inode = inode_table;
+				last_inode = inode_table; // 循环到数组结尾再从头开始
 			if (!last_inode->i_count) {
 				inode = last_inode;
 				if (!inode->i_dirt && !inode->i_lock)
@@ -201,6 +204,7 @@ struct inode * get_pipe_inode(void)
 	return inode;
 }
 
+// 从块设备获取一个inode
 struct inode * iget(int dev,int nr)
 {
 	struct inode * inode, * empty;

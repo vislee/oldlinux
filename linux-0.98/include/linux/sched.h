@@ -321,21 +321,31 @@ __asm__("movw %%dx,%0\n\t" \
 #define set_base(ldt,base) _set_base( ((char *)&(ldt)) , base )
 #define set_limit(ldt,limit) _set_limit( ((char *)&(ldt)) , (limit-1)>>12 )
 
+// 把wait添加到p指向的单循环链表前面
+// 单循环链表，p指向链表头
 extern inline void add_wait_queue(struct wait_queue ** p, struct wait_queue * wait)
 {
 	unsigned long flags;
 	struct wait_queue * tmp;
 
 	__asm__ __volatile__("pushfl ; popl %0 ; cli":"=r" (flags));
+	// 插入单链表头 ===@
 	wait->next = *p;
+
+	// 寻找单链表最后一个元素，让tmp指向其
 	tmp = wait;
 	while (tmp->next)
 		if ((tmp = tmp->next)->next == *p)
 			break;
+	// 最后一个元素的next指针指向第一个元素。循环单链表。
+	// tmp->next = wait;
+
+	// *p = wait;  ===@
 	*p = tmp->next = wait;
 	__asm__ __volatile__("pushl %0 ; popfl"::"r" (flags));
 }
 
+// 从单循环链表移除一个元素，如果移除的是第一个元素，则需要遍历到最后一个元素，让最后一个元素next重新指向。
 extern inline void remove_wait_queue(struct wait_queue ** p, struct wait_queue * wait)
 {
 	unsigned long flags;

@@ -31,7 +31,7 @@ struct request {
 	struct wait_queue * waiting;
 	struct buffer_head * bh;
 	struct buffer_head * bhtail;
-	struct request * next;
+	struct request * next;  // 构建请求等待队列（电梯队列）
 };
 
 /*
@@ -46,7 +46,7 @@ struct request {
 
 struct blk_dev_struct {
 	void (*request_fn)(void);
-	struct request * current_request;
+	struct request * current_request;  // 对应块设备的请求队列
 };
 
 

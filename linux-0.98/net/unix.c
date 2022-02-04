@@ -13,7 +13,7 @@
 #include <asm/segment.h>
 
 #include "kern_sock.h"
-
+// unix socket 协议结构
 static struct unix_proto_data {
 	int refcnt;			/* cnt of reference 0=free */
 	struct socket *socket;		/* socket we're bound to */
@@ -728,6 +728,7 @@ unix_proto_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	return 0;
 }
 
+// unix socket初始化
 static int
 unix_proto_init(void)
 {

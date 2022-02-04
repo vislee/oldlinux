@@ -40,6 +40,42 @@
  *	40(%esp) - %oldss
  */
 
+# 中断系统调用栈上的内容
+# +-----------+
+# |    | OLDSS|
+# +-----------+
+# | OLDESP    |
+# +-----------+
+# | EFLAGS    |
+# +-----------+
+# |    | CS   |
+# +-----------+ <----ESP(内核态用户态切换栈顶指针)
+# | EIP       |
+# +-----------+
+# | ORIG_EAX  |
+# +-----------+
+# |    | GS   |
+# +-----------+
+# |    | FS   |
+# +-----------+
+# |    | ES   |
+# +-----------+
+# |    | DS   |
+# +-----------+ <------EAX(esp)
+# | EAX       |
+# +-----------+
+# | EBP       |
+# +-----------+
+# | EDI       |
+# +-----------+
+# | ESI       |
+# +-----------+
+# | EDX       |
+# +-----------+
+# | ECX       |
+# +-----------+ <---------ESP(system_call SAVE_ALL 后栈顶指针)
+# | EBX       |
+# +-----------+
 EBX		= 0x00
 ECX		= 0x04
 EDX		= 0x08
@@ -119,7 +155,7 @@ reschedule:
 _system_call:
 	pushl %eax			# save orig_eax
 	SAVE_ALL
-	movl $-ENOSYS,EAX(%esp)
+	movl $-ENOSYS,EAX(%esp)  # 栈上eax，函数返回值
 	cmpl _NR_syscalls,%eax
 	jae ret_from_sys_call
 	call _sys_call_table(,%eax,4)
@@ -127,25 +163,25 @@ _system_call:
 	.align 4,0x90
 ret_from_sys_call:
 	movl EFLAGS(%esp),%eax		# check VM86 flag: CS/SS are
-	testl $VM_MASK,%eax		# different then
+	testl $VM_MASK,%eax		# different then  虚拟8086方式标志（17bit）
 	jne 4f
 	cmpw $0x0f,CS(%esp)		# was old code segment supervisor ?
 	jne 2f
 	cmpw $0x17,OLDSS(%esp)		# was stack segment = 0x17 ?
 	jne 2f
 4:	orl $IF_MASK,%eax		# these just try to make sure
-	andl $~NT_MASK,%eax		# the program doesn't do anything
+	andl $~NT_MASK,%eax		# the program doesn't do anything 任务嵌套标志（14bit）
 	movl %eax,EFLAGS(%esp)		# stupid
 1:	cmpl $0,_need_resched
 	jne reschedule
 	movl _current,%eax
 	cmpl _task,%eax			# task[0] cannot have signals
 	je 2f
-	cmpl $0,state(%eax)		# state
+	cmpl $0,state(%eax)		# state  中断返回检测进程状态是否可运行
 	jne reschedule
-	cmpl $0,counter(%eax)		# counter
+	cmpl $0,counter(%eax)		# counter  中断返回检测进程时间片是否已经用完
 	je reschedule
-	movl signal(%eax),%ebx
+	movl signal(%eax),%ebx # 检测进程是否有信号需要处理
 	movl blocked(%eax),%ecx
 	notl %ecx
 	andl %ebx,%ecx
@@ -165,7 +201,7 @@ ret_from_sys_call:
 	movl %eax,%esp
 3:	pushl %ebx
 	pushl %ecx
-	call _do_signal
+	call _do_signal # 在用户态栈上插入信号处理回调函数
 	popl %ecx
 	popl %ebx
 	testl %eax, %eax
@@ -182,6 +218,7 @@ ret_from_sys_call:
 	pop %fs
 	pop %gs
 	addl $4,%esp 		# skip the orig_eax
+	# 系统调用返回，iret返回到用户态，如果有信号需要处理则执行信号处理函数。若没信号处理函数，则执行系统调用下一条指令
 	iret
 
 .align 4

@@ -127,33 +127,33 @@ extern int sys_waitpid(pid_t pid,unsigned long * stat_addr, int options);
  * want to handle. Thus you cannot kill init even with a SIGKILL even by
  * mistake.
  */
-int do_signal(long signr,struct pt_regs * regs)
+int do_signal(long signr,struct pt_regs * regs) // regs就是内核栈顶指针esp
 {
 	unsigned long sa_handler;
-	long old_eip = regs->eip;
+	long old_eip = regs->eip; // 返回用户态执行的指令
 	struct sigaction * sa = current->sigaction + signr - 1;
 	int longs;
 	unsigned long * tmp_esp;
 
 	sa_handler = (unsigned long) sa->sa_handler;
-	if ((regs->orig_eax >= 0) &&
+	if ((regs->orig_eax >= 0) && // 中断号
 	    ((regs->eax == -ERESTARTSYS) || (regs->eax == -ERESTARTNOINTR))) {
 		if ((sa_handler > 1) && (regs->eax == -ERESTARTSYS) &&
 		    (sa->sa_flags & SA_INTERRUPT))
-			regs->eax = -EINTR;
+			regs->eax = -EINTR;  // 信号回调函数的返回值
 		else {
 			regs->eax = regs->orig_eax;
 			regs->eip = old_eip -= 2;
 		}
 	}
-	if (sa_handler==1) {
+	if (sa_handler==1) { // 忽略信号
 /* check for SIGCHLD: it's special */
 		if (signr == SIGCHLD)
 			while (sys_waitpid(-1,NULL,WNOHANG) > 0)
 				/* nothing */;
 		return(1);   /* Ignore, see if there are more signals... */
 	}
-	if (!sa_handler) {
+	if (!sa_handler) {  // 信号默认处理逻辑
 		if (current->pid == 1)
 			return 1;
 		switch (signr) {
@@ -194,9 +194,13 @@ int do_signal(long signr,struct pt_regs * regs)
 		sa->sa_handler = NULL;
 	regs->eip = sa_handler;
 	longs = (sa->sa_flags & SA_NOMASK)?(7*4):(8*4);
+	// 用户态栈，栈顶指针向下增长，可以容纳7、8个值
+	// 构造用户态函数调用栈，相当于插入了一个信号处理函数。
 	regs->esp -= longs;
 	tmp_esp = (unsigned long *) regs->esp;
 	verify_area(tmp_esp,longs);
+	// 函数指针，用户栈顶位置，信号处理函数调用ret返回，该地址被付给eip。
+	// 该函数是用户态库函数中的函数，主要作用是在信号处理结束后恢复系统调用的返回值和一些寄存器内容。
 	put_fs_long((long) sa->sa_restorer,tmp_esp++);
 	put_fs_long(signr,tmp_esp++);
 	if (!(sa->sa_flags & SA_NOMASK))

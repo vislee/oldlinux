@@ -57,44 +57,44 @@ static int ip_proto_create(struct socket *sock, int protocol);
 static int ip_proto_dup(struct socket *newsock, struct socket *oldsock);
 static int ip_proto_release(struct socket *sock, struct socket *peer);
 static int ip_proto_bind(struct socket *sock, struct sockaddr *umyaddr,
-			   int sockaddr_len);
+                     int sockaddr_len);
 static int ip_proto_connect(struct socket *sock, struct sockaddr *uservaddr,
-			      int sockaddr_len, int flags);
+                        int sockaddr_len, int flags);
 static int ip_proto_socketpair(struct socket *sock1, struct socket *sock2);
 static int ip_proto_accept(struct socket *sock, struct socket *newsock, int flags);
 static int ip_proto_getname(struct socket *sock, struct sockaddr *usockaddr,
-			      int *usockaddr_len, int peer);
+                        int *usockaddr_len, int peer);
 static int ip_proto_read(struct socket *sock, char *ubuf, int size,
-			   int nonblock);
+                     int nonblock);
 static int ip_proto_write(struct socket *sock, char *ubuf, int size,
-			    int nonblock);
+                      int nonblock);
 static int ip_proto_select(struct socket *sock, int which, select_table *wait);
 static int ip_proto_ioctl(struct socket *sock, unsigned int cmd,
-			    unsigned long arg);
+                      unsigned long arg);
 static int ip_proto_listen(struct socket *sock, int backlog);
 
 static int ip_proto_send (struct socket *sock, void *buff, int len,
-			  int nonblock, unsigned flags);
+                    int nonblock, unsigned flags);
 static int ip_proto_recv (struct socket *sock, void *buff, int len,
-			  int nonblock, unsigned flags);
+                    int nonblock, unsigned flags);
 static int ip_proto_sendto (struct socket *sock, void *buff, int len,
-			    int nonblock, unsigned flags,
-			    struct sockaddr *addr, int addr_len);
+                      int nonblock, unsigned flags,
+                      struct sockaddr *addr, int addr_len);
 static int ip_proto_recvfrom (struct socket *sock, void *buff, int len,
-			      int nonblock, unsigned flags,
-			      struct sockaddr *addr, int *addr_len);
+                        int nonblock, unsigned flags,
+                        struct sockaddr *addr, int *addr_len);
 
 static int ip_proto_shutdown (struct socket *sock, int how);
 
 
 static int ip_proto_setsockopt (struct socket *sock, int level, int optname,
-				char *optval, int optlen);
+                        char *optval, int optlen);
 static int ip_proto_getsockopt (struct socket *sock, int level, int optname,
-				char *optval, int *optlen);
+                        char *optval, int *optlen);
 static int ip_proto_fcntl (struct socket *sock, unsigned int cmd,
-			   unsigned long arg);
+                     unsigned long arg);
 
-
+// AF_INET协议族操作表
 struct proto_ops inet_proto_ops = 
 {
   ip_proto_init,
@@ -134,16 +134,16 @@ print_sk (volatile struct sock *sk)
   PRINTK ("  num = %d", sk->num);
   PRINTK (" next = %X\n", sk->next);
   PRINTK ("  send_seq = %d, acked_seq = %d, copied_seq = %d\n",
-	  sk->send_seq, sk->acked_seq, sk->copied_seq);
+        sk->send_seq, sk->acked_seq, sk->copied_seq);
   PRINTK ("  rcv_ack_seq = %d, window_seq = %d, fin_seq = %d\n",
-	  sk->rcv_ack_seq, sk->window_seq, sk->fin_seq);
+        sk->rcv_ack_seq, sk->window_seq, sk->fin_seq);
   PRINTK ("  prot = %X\n", sk->prot);
   PRINTK ("  pair = %X, back_log = %X\n", sk->pair,sk->back_log);
   PRINTK ("  inuse = %d , blog = %d\n", sk->inuse, sk->blog);
   PRINTK ("  dead = %d delay_acks=%d\n", sk->dead, sk->delay_acks);
   PRINTK ("  retransmits = %d, timeout = %d\n", sk->retransmits, sk->timeout);
   PRINTK ("  cong_window = %d, packets_out = %d\n", sk->cong_window,
-	  sk->packets_out);
+        sk->packets_out);
 }
 
 void
@@ -167,7 +167,7 @@ lock_skb (struct sk_buff *skb)
 {
    if (skb->lock)
      {
-	printk ("*** bug more than one lock on sk_buff. \n");
+      printk ("*** bug more than one lock on sk_buff. \n");
      }
    skb->lock = 1;
 }
@@ -178,23 +178,23 @@ free_skb (struct sk_buff *skb, int rw)
 {
    if (skb->lock)
      {
-	skb->free = 1;
-	return;
+      skb->free = 1;
+      return;
      }
    if (skb->sk)
      {
-	if (rw)
-	  {
-	     skb->sk->prot->rfree (skb->sk, skb->mem_addr, skb->mem_len);
-	  }
-	else
-	  {
-	     skb->sk->prot->wfree (skb->sk, skb->mem_addr, skb->mem_len);
-	  }
+      if (rw)
+        {
+           skb->sk->prot->rfree (skb->sk, skb->mem_addr, skb->mem_len);
+        }
+      else
+        {
+           skb->sk->prot->wfree (skb->sk, skb->mem_addr, skb->mem_len);
+        }
      }
    else
      {
-	free_s (skb->mem_addr, skb->mem_len);
+      free_s (skb->mem_addr, skb->mem_len);
      }
 }
 
@@ -203,13 +203,13 @@ unlock_skb (struct sk_buff *skb, int rw)
 {
    if (skb->lock != 1)
      {
-	printk ("*** bug unlocking non-locked sk_buff. \n");
+      printk ("*** bug unlocking non-locked sk_buff. \n");
      }
    skb->lock = 0;
    if (skb->free)
      free_skb (skb, rw);
 }
-
+// 端口号是否被占用
 static  int
 sk_inuse( struct proto *prot, int num)
 {
@@ -247,21 +247,21 @@ get_new_socknum(struct proto *prot, unsigned short base)
       j = 0;
       sk = prot->sock_array[(i+base+1) & (SOCK_ARRAY_SIZE -1)];
       while (sk != NULL)
-	{
-	  sk = sk->next;
-	  j++;
-	}
+      {
+        sk = sk->next;
+        j++;
+      }
       if (j == 0) return (i+base+1);
       if (j < size) 
-	{
-	  best = i;
-	  size = j;
-	}
+      {
+        best = i;  // hash桶下标
+        size = j;  // hash表最短队列的大小
+      }
     }
   /* now make sure the one we want is not in use. */
   while (sk_inuse (prot, base +best+1))
     {
-      best += SOCK_ARRAY_SIZE;
+      best += SOCK_ARRAY_SIZE; // 如果端口被占用，则加hash桶大小继续查找，因为这样还属于一个桶
     }
   return (best+base+1);
   
@@ -283,18 +283,18 @@ put_sock(unsigned short num, volatile struct sock *sk)
    cli();
    if (sk->prot->sock_array[num] == NULL)
      {
-	sk->prot->sock_array[num] = sk;
-	sti();
-	return;
+      sk->prot->sock_array[num] = sk;
+      sti();
+      return;
      }
    sti();
    for (mask = 0xff000000; mask != 0xffffffff; mask = (mask >> 8) | mask)
      {
-	if (mask & sk->saddr)
-	  {
-	     mask = mask << 8;
-	     break;
-	  }
+      if (mask & sk->saddr)
+        {
+           mask = mask << 8;
+           break;
+        }
      }
 
    PRINTK ("mask = %X\n", mask);
@@ -303,21 +303,21 @@ put_sock(unsigned short num, volatile struct sock *sk)
    sk1 = sk->prot->sock_array[num];
    for (sk2 = sk1; sk2 != NULL; sk2=sk2->next)
      {
-	if (!(sk2->saddr & mask))
-	  {
-	     if (sk2 == sk1)
-	       {
-		  sk->next = sk->prot->sock_array[num];
-		  sk->prot->sock_array[num] = sk;
-		  sti();
-		  return;
-	       }
-	     sk->next = sk2;
-	     sk1->next= sk;
-	     sti();
-	     return;
-	  }
-	sk1 = sk2;
+      if (!(sk2->saddr & mask))
+        {
+           if (sk2 == sk1)
+             {
+              sk->next = sk->prot->sock_array[num];
+              sk->prot->sock_array[num] = sk;
+              sti();
+              return;
+             }
+             sk->next = sk2;
+           sk1->next= sk;
+           sti();
+           return;
+        }
+      sk1 = sk2;
      }
    /* goes at the end. */
    sk->next = NULL;
@@ -344,11 +344,11 @@ remove_sock(volatile struct sock *sk1)
   while (sk2->next != sk1)
     {
       if (sk2 == NULL)
-	{
-	  sti();
-	  PRINTK ("remove_sock: sock  not found.\n");
-	  return;
-	}
+      {
+        sti();
+        PRINTK ("remove_sock: sock  not found.\n");
+        return;
+      }
       sk2=sk2->next;
     }
   sk2->next = sk1->next;
@@ -384,18 +384,18 @@ destroy_sock(volatile struct sock *sk)
     {
        skb = sk->rqueue;
        do {
-	  struct sk_buff *skb2;
-	  skb2=skb->next;
-	  /* this will take care of closing sockets that were
-	     listening and didn't accept everything. */
+        struct sk_buff *skb2;
+        skb2=skb->next;
+        /* this will take care of closing sockets that were
+           listening and didn't accept everything. */
 
-	  if (skb->sk != NULL && skb->sk != sk)
-	    {
-	       skb->sk->dead = 1;
-	       skb->sk->prot->close (skb->sk, 0);
-	    }
-	  free_skb(skb, FREE_READ);
-	  skb=skb2;
+        if (skb->sk != NULL && skb->sk != sk)
+          {
+             skb->sk->dead = 1;
+             skb->sk->prot->close (skb->sk, 0);
+          }
+        free_skb(skb, FREE_READ);
+        skb=skb2;
        } while (skb != sk->rqueue);
     }
 
@@ -409,25 +409,25 @@ destroy_sock(volatile struct sock *sk)
       cli();
       /* see if it's in a transmit queue. */
       if (skb->next != NULL)
-	{
-	   if (skb->next != skb)
-	     {
-		skb->next->prev = skb->prev;
-		skb->prev->next = skb->next;
-	     }
-	   else
-	     {
-		int i;
-		for (i = 0; i < DEV_NUMBUFFS; i++)
-		  {
-		     if (skb->dev && skb->dev->buffs[i] == skb)
-		       {
-			  skb->dev->buffs[i]= NULL;
-			  break;
-		       }
-		  }
-	     }
-	}
+      {
+         if (skb->next != skb)
+           {
+            skb->next->prev = skb->prev;
+            skb->prev->next = skb->next;
+           }
+         else
+           {
+            int i;
+            for (i = 0; i < DEV_NUMBUFFS; i++)
+              {
+                 if (skb->dev && skb->dev->buffs[i] == skb)
+                   {
+                    skb->dev->buffs[i]= NULL;
+                    break;
+                   }
+              }
+           }
+      }
       sti();
       skb2=skb->link3;
       free_skb(skb, FREE_WRITE);
@@ -445,10 +445,10 @@ destroy_sock(volatile struct sock *sk)
        cli();
        skb = sk->back_log;
        do {
-	  struct sk_buff *skb2;
-	  skb2=skb->next;
-	  free_skb(skb, FREE_READ);
-	  skb=skb2;
+        struct sk_buff *skb2;
+        skb2=skb->next;
+        free_skb(skb, FREE_READ);
+        skb=skb2;
        } while (skb != sk->back_log);
        sti();
     }
@@ -485,26 +485,26 @@ ip_proto_fcntl (struct socket *sock, unsigned int cmd, unsigned long arg)
    sk=sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
    switch (cmd)
      {
        case F_SETOWN:
-	sk->proc = arg;
-	return (0);
+      sk->proc = arg;
+      return (0);
 
        case F_GETOWN:
-	return (sk->proc);
+      return (sk->proc);
 
        default:
-	return (-EINVAL);
+      return (-EINVAL);
      }
 }
 
 static int
 ip_proto_setsockopt(struct socket *sock, int level, int optname,
-		    char *optval, int optlen)
+                char *optval, int optlen)
 {
     volatile struct sock *sk;
     int val;
@@ -513,70 +513,70 @@ ip_proto_setsockopt(struct socket *sock, int level, int optname,
     sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
     verify_area (optval, sizeof (int));
     val = get_fs_long ((unsigned long *)optval);
     switch (optname)
       {
-	case SO_TYPE:
-	case SO_ERROR:
-	default:
-	  return (-ENOPROTOOPT);
+      case SO_TYPE:
+      case SO_ERROR:
+      default:
+        return (-ENOPROTOOPT);
 
-	case SO_DEBUG: /* not implemented. */
-	case SO_DONTROUTE:
-	case SO_BROADCAST:
-	case SO_SNDBUF:
-	case SO_RCVBUF:
-	  return (0);
+      case SO_DEBUG: /* not implemented. */
+      case SO_DONTROUTE:
+      case SO_BROADCAST:
+      case SO_SNDBUF:
+      case SO_RCVBUF:
+        return (0);
 
-	case SO_REUSEADDR:
-	  if (val)
-	    sk->reuse = 1;
-	  else 
-	    sk->reuse = 1;
-	  return (0);
+      case SO_REUSEADDR:
+        if (val)
+          sk->reuse = 1;
+        else 
+          sk->reuse = 1;
+        return (0);
 
-	case SO_KEEPALIVE:
-	  if (val)
-	    sk->keepopen = 1;
-	  else
-	    sk->keepopen = 0;
-	  return (0);
+      case SO_KEEPALIVE:
+        if (val)
+          sk->keepopen = 1;
+        else
+          sk->keepopen = 0;
+        return (0);
 
-	 case SO_OOBINLINE:
-	  if (val)
-	    sk->urginline = 1;
-	  else
-	    sk->urginline = 0;
-	  return (0);
+       case SO_OOBINLINE:
+        if (val)
+          sk->urginline = 1;
+        else
+          sk->urginline = 0;
+        return (0);
 
-	 case SO_NO_CHECK:
-	  if (val)
-	    sk->no_check = 1;
-	  else
-	    sk->no_check = 0;
-	  return (0);
+       case SO_NO_CHECK:
+        if (val)
+          sk->no_check = 1;
+        else
+          sk->no_check = 0;
+        return (0);
 
-	 case SO_PRIORITY:
-	  if (val >= 0 && val < DEV_NUMBUFFS)
-	    {
-	       sk->priority = val;
-	    }
-	  else
-	    {
-	       return (-EINVAL);
-	    }
-	  return (0);
+       case SO_PRIORITY:
+        if (val >= 0 && val < DEV_NUMBUFFS)
+          {
+             sk->priority = val;
+          }
+        else
+          {
+             return (-EINVAL);
+          }
+        return (0);
 
       }
 }
 
 static int
 ip_proto_getsockopt(struct socket *sock, int level, int optname,
-		    char *optval, int *optlen)
+                char *optval, int *optlen)
 {
     volatile struct sock *sk;
     int val;
@@ -585,53 +585,53 @@ ip_proto_getsockopt(struct socket *sock, int level, int optname,
     sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
     switch (optname)
       {
-	default:
-	  return (-ENOPROTOOPT);
+      default:
+        return (-ENOPROTOOPT);
 
-	case SO_DEBUG: /* not implemented. */
-	case SO_DONTROUTE:
-	case SO_BROADCAST:
-	case SO_SNDBUF:
-	case SO_RCVBUF:
-	  val = 0;
-	  break;
+      case SO_DEBUG: /* not implemented. */
+      case SO_DONTROUTE:
+      case SO_BROADCAST:
+      case SO_SNDBUF:
+      case SO_RCVBUF:
+        val = 0;
+        break;
 
-	case SO_REUSEADDR:
-	  val = sk->reuse;
-	  break;
+      case SO_REUSEADDR:
+        val = sk->reuse;
+        break;
 
-	case SO_KEEPALIVE:
-	  val = sk->keepopen;
-	  break;
+      case SO_KEEPALIVE:
+        val = sk->keepopen;
+        break;
 
-	case SO_TYPE:
-	  if (sk->prot == &tcp_prot)
-	    val = SOCK_STREAM;
-	  else
-	    val = SOCK_DGRAM;
-	  break;
+      case SO_TYPE:
+        if (sk->prot == &tcp_prot)
+          val = SOCK_STREAM;
+        else
+          val = SOCK_DGRAM;
+        break;
 
-	case SO_ERROR:
-	  val = sk->err;
-	  sk->err = 0;
-	  break;
+      case SO_ERROR:
+        val = sk->err;
+        sk->err = 0;
+        break;
 
-	 case SO_OOBINLINE:
-	  val = sk->urginline;
-	  break;
+       case SO_OOBINLINE:
+        val = sk->urginline;
+        break;
 
-	 case SO_NO_CHECK:
-	  val = sk->no_check;
-	  break;
+       case SO_NO_CHECK:
+        val = sk->no_check;
+        break;
 
-	 case SO_PRIORITY:
-	  val = sk->priority;
-	  break;
+       case SO_PRIORITY:
+        val = sk->priority;
+        break;
       }
     verify_area (optlen, sizeof (int));
     put_fs_long (sizeof(int),(unsigned long *) optlen);
@@ -648,14 +648,15 @@ ip_proto_listen(struct socket *sock, int backlog)
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   sk->state = TCP_LISTEN;
   return (0);
 }
 
 /* Hardware should be inited here. */
+// 网络协议初始化
 static int ip_proto_init(void)
 {
   int i;
@@ -665,9 +666,9 @@ static int ip_proto_init(void)
   /* add all the protocols. */
   for (i = 0; i < SOCK_ARRAY_SIZE; i++)
     {
-       tcp_prot.sock_array[i] = NULL;
-       udp_prot.sock_array[i] = NULL;
-       raw_prot.sock_array[i] = NULL;
+       tcp_prot.sock_array[i] = NULL; // tcp协议
+       udp_prot.sock_array[i] = NULL; // udp协议
+       raw_prot.sock_array[i] = NULL; // 原始数据
     }
 
   for (p = ip_protocol_base; p != NULL;)
@@ -675,7 +676,7 @@ static int ip_proto_init(void)
        struct ip_protocol *tmp;
        /* add all the protocols. */
        tmp = p->next;
-       add_ip_protocol (p);
+       add_ip_protocol (p); // IP报分用支持的协议。ICMP、UPD、TCP。
        p = tmp;
     }
 
@@ -683,9 +684,9 @@ static int ip_proto_init(void)
   for (dev = dev_base; dev != NULL; dev=dev->next)
     {
        if (dev->init)
-	 dev->init(dev);
+       dev->init(dev);
     }
-  timer_table[NET_TIMER].fn = net_timer;
+  timer_table[NET_TIMER].fn = net_timer; //注册定时器回调函数
   return (0);
 }
 
@@ -707,59 +708,59 @@ ip_proto_create (struct socket *sock, int protocol)
     case SOCK_STREAM:
     case SOCK_SEQPACKET:
        if (protocol && protocol != IP_TCP)
-	 {
-	    free_s ((void *)sk, sizeof (*sk));
-	    return (-EPROTONOSUPPORT);
-	 }
+       {
+          free_s ((void *)sk, sizeof (*sk));
+          return (-EPROTONOSUPPORT);
+       }
        sk->no_check = TCP_NO_CHECK;
        prot = &tcp_prot;
        break;
 
     case SOCK_DGRAM:
        if (protocol && protocol != IP_UDP)
-	 {
-	    free_s ((void *)sk, sizeof (*sk));
-	    return (-EPROTONOSUPPORT);
-	 }
+       {
+          free_s ((void *)sk, sizeof (*sk));
+          return (-EPROTONOSUPPORT);
+       }
        sk->no_check = UDP_NO_CHECK;
        prot=&udp_prot;
        break;
       
      case SOCK_RAW:
        if (!suser())
-	 {
-	    free_s ((void *)sk, sizeof (*sk));
-	    return (-EPERM);
-	 }
+       {
+          free_s ((void *)sk, sizeof (*sk));
+          return (-EPERM);
+       }
 
        if (!protocol)
-	 {
-	    free_s ((void *)sk, sizeof (*sk));
-	    return (-EPROTONOSUPPORT);
-	 }
+       {
+          free_s ((void *)sk, sizeof (*sk));
+          return (-EPROTONOSUPPORT);
+       }
        prot = &raw_prot;
        sk->reuse = 1;
        sk->no_check = 0; /* doesn't matter no checksum is preformed
-			    anyway. */
+                      anyway. */
        sk->num = protocol;
        break;
 
     case SOCK_PACKET:
        if (!suser())
-	 {
-	    free_s ((void *)sk, sizeof (*sk));
-	    return (-EPERM);
-	 }
+       {
+          free_s ((void *)sk, sizeof (*sk));
+          return (-EPERM);
+       }
 
        if (!protocol)
-	 {
-	    free_s ((void *)sk, sizeof (*sk));
-	    return (-EPROTONOSUPPORT);
-	 }
+       {
+          free_s ((void *)sk, sizeof (*sk));
+          return (-EPROTONOSUPPORT);
+       }
        prot = &packet_prot;
        sk->reuse = 1;
        sk->no_check = 0; /* doesn't matter no checksum is preformed
-			    anyway. */
+                      anyway. */
        sk->num = protocol;
        break;
 
@@ -783,7 +784,7 @@ ip_proto_create (struct socket *sock, int protocol)
   sk->packets_out = 0;
   sk->cong_window = 1; /* start with only sending one packet at a time. */
   sk->exp_growth = 1;  /* if set cong_window grow exponentially every time
-			  we get an ack. */
+                    we get an ack. */
   sk->urginline = 0;
   sk->intr = 0;
   sk->linger = 0;
@@ -812,7 +813,7 @@ ip_proto_create (struct socket *sock, int protocol)
   sk->max_ack_backlog = MAX_ACK_BACKLOG;
   sk->inuse = 0;
   sk->delay_acks = 1; /* default to waiting a while before sending
-			 acks.  */
+                   acks.  */
   sk->wback = NULL;
   sk->wfront = NULL;
   sk->rqueue = NULL;
@@ -865,10 +866,10 @@ ip_proto_create (struct socket *sock, int protocol)
     {
        err = sk->prot->init(sk);
        if (err != 0)
-	 {
-	    destroy_sock (sk);
-	    return (err);
-	 }
+       {
+          destroy_sock (sk);
+          return (err);
+       }
     }
   return (0);
 }
@@ -877,7 +878,7 @@ static int
 ip_proto_dup (struct socket *newsock, struct socket *oldsock)
 {
   return (ip_proto_create (newsock,
-			   ((volatile struct sock *)(oldsock->data))->protocol));
+                     ((volatile struct sock *)(oldsock->data))->protocol));
 }
 
 /* the peer socket should always be NULL. */
@@ -902,14 +903,14 @@ ip_proto_release(struct socket *sock, struct socket *peer)
        sk->prot->close(sk, 0);
        cli();
        while (sk->state != TCP_CLOSE)
-	 {
-	    interruptible_sleep_on (sk->sleep);
-	    if (current->signal & ~current->blocked)
-	      {
-		 sti();
-		 return (-ERESTARTSYS);
-	      }
-	 }
+       {
+          interruptible_sleep_on (sk->sleep);
+          if (current->signal & ~current->blocked)
+            {
+             sti();
+             return (-ERESTARTSYS);
+            }
+       }
        sti();
        sk->dead = 1;
     }
@@ -921,10 +922,10 @@ ip_proto_release(struct socket *sock, struct socket *peer)
   return (0);
 }
 
-
+// 绑定本地地址
 static int
 ip_proto_bind (struct socket *sock, struct sockaddr *uaddr,
-	       int addr_len)
+             int addr_len)
 {
   struct sockaddr_in addr;
   volatile struct sock *sk, *sk2;
@@ -932,8 +933,8 @@ ip_proto_bind (struct socket *sock, struct sockaddr *uaddr,
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   /* check this error. */
   if (sk->state != TCP_CLOSE) return (-EIO);
@@ -962,7 +963,7 @@ ip_proto_bind (struct socket *sock, struct sockaddr *uaddr,
   if (my_ip_addr(addr.sin_addr.s_addr) || addr.sin_addr.s_addr == 0)
     sk->saddr = addr.sin_addr.s_addr;
   PRINTK ("sock_array[%d] = %X:\n", snum & (SOCK_ARRAY_SIZE -1),
-	  sk->prot->sock_array[snum & (SOCK_ARRAY_SIZE -1)]);
+        sk->prot->sock_array[snum & (SOCK_ARRAY_SIZE -1)]);
   print_sk (sk->prot->sock_array[snum & (SOCK_ARRAY_SIZE -1)]);
 
   /* make sure we are allowed to bind here. */
@@ -983,9 +984,10 @@ ip_proto_bind (struct socket *sock, struct sockaddr *uaddr,
   return (0);
 }
 
+// 客户端主动发起连接
 static int
 ip_proto_connect (struct socket *sock, struct sockaddr * uaddr,
-		  int addr_len, int flags)
+              int addr_len, int flags)
 {
   volatile struct sock *sk;
   int err;
@@ -993,14 +995,15 @@ ip_proto_connect (struct socket *sock, struct sockaddr * uaddr,
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   if (sk->prot->connect == NULL)
     return (-EOPNOTSUPP);
 
   if (sk->intr == 0)
     {
+      // tcp: tcp_connect
       err = sk->prot->connect (sk, (struct sockaddr_in *)uaddr, addr_len);
       if (err < 0) return (err);
     }
@@ -1015,11 +1018,11 @@ ip_proto_connect (struct socket *sock, struct sockaddr * uaddr,
     {
       interruptible_sleep_on (sk->sleep);
       if (current->signal & ~current->blocked)
-	{
-	   sti();
-	   sk->intr = 1;
-	   return (-ERESTARTSYS);
-	}
+      {
+         sti();
+         sk->intr = 1;
+         return (-ERESTARTSYS);
+      }
     }
   sti();
   sk->intr = 0;
@@ -1043,8 +1046,8 @@ ip_proto_accept (struct socket *sock, struct socket *newsock, int flags)
   sk1= sock->data;
    if (sk1 == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   newsock->data = NULL;
   if (sk1->prot->accept == NULL) return (-EOPNOTSUPP);
@@ -1059,7 +1062,7 @@ ip_proto_accept (struct socket *sock, struct socket *newsock, int flags)
     {
       sk2 = sk1->prot->accept (sk1,flags);
       if (sk2 == NULL)
-	return (-sk1->err);
+      return (-sk1->err);
     }
   newsock->data = (void *)sk2;
   sk2->sleep = (void *)newsock->wait;
@@ -1072,13 +1075,13 @@ ip_proto_accept (struct socket *sock, struct socket *newsock, int flags)
     {
       interruptible_sleep_on (sk2->sleep);
       if (current->signal & ~current->blocked)
-	{
-	   sti();
-	   sk1->pair = sk2;
-	   sk2->sleep = NULL;
-	   newsock->data = NULL;
-	   return (-ERESTARTSYS);
-	}
+      {
+         sti();
+         sk1->pair = sk2;
+         sk2->sleep = NULL;
+         newsock->data = NULL;
+         return (-ERESTARTSYS);
+      }
     }
   sti();
 
@@ -1096,7 +1099,7 @@ ip_proto_accept (struct socket *sock, struct socket *newsock, int flags)
 
 static int
 ip_proto_getname(struct socket *sock, struct sockaddr *uaddr,
-		 int *uaddr_len, int peer)
+             int *uaddr_len, int peer)
 {
   struct sockaddr_in sin;
   volatile struct sock *sk;
@@ -1116,7 +1119,7 @@ ip_proto_getname(struct socket *sock, struct sockaddr *uaddr,
   if (peer)
     {
       if (sk->state != TCP_ESTABLISHED)
-	return (-ENOTCONN);
+      return (-ENOTCONN);
       sin.sin_port = sk->dummy_th.dest;
       sin.sin_addr.s_addr = sk->daddr;
       }
@@ -1138,8 +1141,8 @@ ip_proto_read (struct socket *sock, char *ubuf, int size, int noblock)
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   if (sk->shutdown & RCV_SHUTDOWN)
     return (-EIO);
@@ -1148,14 +1151,14 @@ ip_proto_read (struct socket *sock, char *ubuf, int size, int noblock)
 
 static int
 ip_proto_recv (struct socket *sock, void *ubuf, int size, int noblock,
-	       unsigned flags)
+             unsigned flags)
 {
   volatile struct sock *sk;
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   if (sk->shutdown & RCV_SHUTDOWN)
     return (-EIO);
@@ -1169,8 +1172,8 @@ ip_proto_write (struct socket *sock, char *ubuf, int size, int noblock)
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   if (sk->shutdown & SEND_SHUTDOWN)
     return (-EIO);
@@ -1180,14 +1183,14 @@ ip_proto_write (struct socket *sock, char *ubuf, int size, int noblock)
 
 static int
 ip_proto_send (struct socket *sock, void *ubuf, int size, int noblock, 
-	       unsigned flags)
+             unsigned flags)
 {
   volatile struct sock *sk;
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   if (sk->shutdown & SEND_SHUTDOWN)
     return (-EIO);
@@ -1197,59 +1200,59 @@ ip_proto_send (struct socket *sock, void *ubuf, int size, int noblock,
 
 static int
 ip_proto_sendto (struct socket *sock, void *ubuf, int size, int noblock, 
-		 unsigned flags, struct sockaddr *sin, int addr_len )
+             unsigned flags, struct sockaddr *sin, int addr_len )
 {
   volatile struct sock *sk;
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   if (sk->shutdown & SEND_SHUTDOWN)
     return (-EIO);
   if (sk->prot->sendto == NULL) return (-EOPNOTSUPP);
   return (sk->prot->sendto (sk, ubuf, size, noblock, flags, 
-			    (struct sockaddr_in *)sin, addr_len));
+                      (struct sockaddr_in *)sin, addr_len));
 }
 
 static int
 ip_proto_recvfrom (struct socket *sock, void *ubuf, int size, int noblock, 
-		   unsigned flags, struct sockaddr *sin, int *addr_len )
+               unsigned flags, struct sockaddr *sin, int *addr_len )
 {
   volatile struct sock *sk;
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
   if (sk->shutdown & RCV_SHUTDOWN)
     return (-EIO);
   if (sk->prot->recvfrom == NULL) return (-EOPNOTSUPP);
   return (sk->prot->recvfrom (sk, ubuf, size, noblock, flags,
-			      (struct sockaddr_in*)sin, addr_len));
+                        (struct sockaddr_in*)sin, addr_len));
 }
 
 static int
 ip_proto_shutdown (struct socket *sock, int how)
 {
-	volatile struct sock *sk;
-	/* this should really check to make sure the socket is
-	   a tcp socket. */
-	how++; /* maps 0->1 has the advantage of making bit 1 rcvs and
-		       1->2 bit 2 snds.
-		       2->3 */
-	if (how & ~SHUTDOWN_MASK) return (-EINVAL);
-	sk = sock->data;
-	if (sk == NULL)
-	  {
-	     printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	     return (0);
-	  }
-	if (sk->state != TCP_ESTABLISHED) return (-ENOTCONN);
-	sk->shutdown |= how;
-	return (0);
+      volatile struct sock *sk;
+      /* this should really check to make sure the socket is
+         a tcp socket. */
+      how++; /* maps 0->1 has the advantage of making bit 1 rcvs and
+                   1->2 bit 2 snds.
+                   2->3 */
+      if (how & ~SHUTDOWN_MASK) return (-EINVAL);
+      sk = sock->data;
+      if (sk == NULL)
+        {
+           printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+           return (0);
+        }
+      if (sk->state != TCP_ESTABLISHED) return (-ENOTCONN);
+      sk->shutdown |= how;
+      return (0);
 }
 
 static int
@@ -1259,8 +1262,8 @@ ip_proto_select (struct socket *sock, int sel_type, select_table *wait )
   sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
 
   if (sk->prot->select == NULL)
@@ -1274,14 +1277,14 @@ ip_proto_select (struct socket *sock, int sel_type, select_table *wait )
 /* these should be distributed to the different protocol routines. */
 static int
 ip_proto_ioctl (struct socket *sock, unsigned int cmd, 
-		unsigned long arg)
+            unsigned long arg)
 {
    volatile struct sock *sk;
    sk = sock->data;
    if (sk == NULL)
      {
-	printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
-	return (0);
+      printk ("Warning: sock->data = NULL: %d\n" ,__LINE__);
+      return (0);
      }
 
   PRINTK ("in ip_proto_ioctl\n");
@@ -1290,7 +1293,7 @@ ip_proto_ioctl (struct socket *sock, unsigned int cmd,
 
       case IP_SET_DEV:
        if (!suser())
-	 return (-EPERM);
+       return (-EPERM);
        return (ip_set_dev((struct ip_config *)arg));
 #if 0
     case IP_ADD_ROUTE:
@@ -1299,7 +1302,7 @@ ip_proto_ioctl (struct socket *sock, unsigned int cmd,
 #endif
     default:
        if (!sk->prot->ioctl)
-	 return (-EINVAL);
+       return (-EINVAL);
        return (sk->prot->ioctl (sk, cmd, arg));
     }
 }
@@ -1323,7 +1326,7 @@ print_mem (struct mem *m)
    MPRINTK("  len=%d buff:\n " , m->len);
    for (i = 0; i < 10; i++)
      {
-	MPRINTK ("0x%02X ",m->buff[i]);
+      MPRINTK ("0x%02X ",m->buff[i]);
      }
    MPRINTK ("\n");
 }
@@ -1349,8 +1352,8 @@ smalloc (unsigned long size)
    head->len = size;
    for (i = 0; i < 10; i++)
      {
-	tail->buff[i]=count++;
-	head->buff[i]=count;
+      tail->buff[i]=count++;
+      head->buff[i]=count;
      }
 
    ptr = (unsigned char *)head;
@@ -1359,7 +1362,7 @@ smalloc (unsigned long size)
 
    for (i = 0; i < sizeof (*head); i ++)
      {
-	sum+= ptr[i]; 
+      sum+= ptr[i]; 
      }
 
    head->check = ~sum;
@@ -1369,7 +1372,7 @@ smalloc (unsigned long size)
 
    for (i = 0; i < sizeof (*head); i ++)
      {
-	sum+= ptr[i]; 
+      sum+= ptr[i]; 
      }
 
    tail->check = ~sum;
@@ -1397,23 +1400,23 @@ sfree (void *data, unsigned long len)
    print_mem (tail);
    if (head->other != tail)
      {
-	MPRINTK ("sfree: head->other != tail:\n");
-	bad = 1;
+      MPRINTK ("sfree: head->other != tail:\n");
+      bad = 1;
      }
    if (tail->other != head)
      {
-	MPRINTK ("sfree: tail->other != head:\n");
-	bad =1 ;
+      MPRINTK ("sfree: tail->other != head:\n");
+      bad =1 ;
      }
    if (head ->len != len)
      {
-	MPRINTK ("sfree: head->len != len");
-	bad = 1;
+      MPRINTK ("sfree: head->len != len");
+      bad = 1;
      }
    if (tail ->len != len)
      {
-	MPRINTK ("sfree: tail->len != len");
-	bad = 1;
+      MPRINTK ("sfree: tail->len != len");
+      bad = 1;
      }
    csum = head->check;
    ptr = (unsigned char *)head;
@@ -1421,12 +1424,12 @@ sfree (void *data, unsigned long len)
    sum = 0;
    for (i = 0; i < sizeof (*head); i ++)
      {
-	sum+= ptr[i]; 
+      sum+= ptr[i]; 
      }
    if (csum != ~sum)
      {
-	MPRINTK ("sfree: head failed checksum\n");
-	bad = 1;
+      MPRINTK ("sfree: head failed checksum\n");
+      bad = 1;
      }
    csum = tail->check;
    ptr = (unsigned char *)tail;
@@ -1434,12 +1437,12 @@ sfree (void *data, unsigned long len)
    sum = 0;
    for (i = 0; i < sizeof (*head); i ++)
      {
-	sum+= ptr[i]; 
+      sum+= ptr[i]; 
      }
    if (csum != ~sum)
      {
-	MPRINTK ("sfree: tail failed checksum\n");
-	bad = 1;
+      MPRINTK ("sfree: tail failed checksum\n");
+      bad = 1;
      }
    if (!bad)
      free_s (head, len+2*sizeof (*head));
@@ -1466,11 +1469,11 @@ sock_wmalloc(volatile struct sock *sk, unsigned long size, int force)
   if (sk)
     {
        if (sk->wmem_alloc + size >= SK_WMEM_MAX && !force)
-	 {
-	    MPRINTK ("sock_wmalloc(%X,%d,%d) returning NULL\n",
-		     sk, size, force);
-	    return (NULL);
-	 }
+       {
+          MPRINTK ("sock_wmalloc(%X,%d,%d) returning NULL\n",
+                 sk, size, force);
+          return (NULL);
+       }
       cli();
       sk->wmem_alloc+= size;
       sti();
@@ -1490,14 +1493,14 @@ sock_rmalloc(volatile struct sock *sk, unsigned long size, int force)
    struct mem *tmp;
    if (sk )
      {
-	if (sk->rmem_alloc + size >= SK_RMEM_MAX && !force)
-	  {
-	     MPRINTK ("sock_rmalloc(%X,%d,%d) returning NULL\n",sk,size,force);
-	     return (NULL);
-	  }
-	cli();
-	sk->rmem_alloc+= size;
-	sti();
+      if (sk->rmem_alloc + size >= SK_RMEM_MAX && !force)
+        {
+           MPRINTK ("sock_rmalloc(%X,%d,%d) returning NULL\n",sk,size,force);
+           return (NULL);
+        }
+      cli();
+      sk->rmem_alloc+= size;
+      sti();
      }
    if (sk)
      tmp = smalloc (size);
@@ -1515,10 +1518,10 @@ sock_rspace (volatile struct sock *sk)
    int amt;
    if (sk != NULL)
      {
-	if (sk->rmem_alloc >= SK_RMEM_MAX-2*MIN_WINDOW) return (0);
-	amt = min ((SK_RMEM_MAX-sk->rmem_alloc)/2-MIN_WINDOW, MAX_WINDOW);
-	if (amt < 0) return (0);
-	return (amt);
+      if (sk->rmem_alloc >= SK_RMEM_MAX-2*MIN_WINDOW) return (0);
+      amt = min ((SK_RMEM_MAX-sk->rmem_alloc)/2-MIN_WINDOW, MAX_WINDOW);
+      if (amt < 0) return (0);
+      return (amt);
      }
    return (0);
 }
@@ -1542,20 +1545,20 @@ sock_wfree (volatile struct sock *sk, void *mem, unsigned long size)
    MPRINTK ("sock_wfree (sk=%X, mem=%X, size=%d)\n",sk, mem, size);
    if (sk)
      {
-	sk->wmem_alloc -= size;
-	sfree(mem,size);
-	/* in case it might be waiting for more memory. */
-	if (!sk->dead && sk->wmem_alloc > SK_WMEM_MAX/2) wake_up(sk->sleep);
-	if (sk->destroy && sk->wmem_alloc == 0 && sk->rmem_alloc == 0)
-	  {
-	     MPRINTK ("recovered lost memory, destroying sock = %X\n",sk);
-	     delete_timer ((struct timer *)&sk->time_wait);
-	     free_s ((void *)sk, sizeof (*sk));
-	  }
+      sk->wmem_alloc -= size;
+      sfree(mem,size);
+      /* in case it might be waiting for more memory. */
+      if (!sk->dead && sk->wmem_alloc > SK_WMEM_MAX/2) wake_up(sk->sleep);
+      if (sk->destroy && sk->wmem_alloc == 0 && sk->rmem_alloc == 0)
+        {
+           MPRINTK ("recovered lost memory, destroying sock = %X\n",sk);
+           delete_timer ((struct timer *)&sk->time_wait);
+           free_s ((void *)sk, sizeof (*sk));
+        }
      }
    else
      {
-	free_s (mem, size);
+      free_s (mem, size);
      }
 }
 
@@ -1565,17 +1568,17 @@ sock_rfree (volatile struct sock *sk, void *mem, unsigned long size)
    MPRINTK ("sock_rfree (sk=%X, mem=%X, size=%d)\n",sk, mem, size);
    if (sk)
      {
-	sk->rmem_alloc -= size;
-	sfree(mem,size);
-	if (sk->destroy && sk->wmem_alloc == 0 && sk->rmem_alloc == 0)
-	  {
-	     delete_timer ((struct timer *)&sk->time_wait);
-	     free_s ((void *)sk, sizeof (*sk));
-	  }
+      sk->rmem_alloc -= size;
+      sfree(mem,size);
+      if (sk->destroy && sk->wmem_alloc == 0 && sk->rmem_alloc == 0)
+        {
+           delete_timer ((struct timer *)&sk->time_wait);
+           free_s ((void *)sk, sizeof (*sk));
+        }
      }
    else
      {
-	free_s (mem, size);
+      free_s (mem, size);
      }
 }
 
@@ -1584,12 +1587,12 @@ sock_rfree (volatile struct sock *sk, void *mem, unsigned long size)
    is assumed to be in net order. */
 
 volatile struct sock *get_sock (struct proto *prot, unsigned short num,
-				unsigned long raddr,
-				unsigned short rnum, unsigned long laddr)
+                        unsigned long raddr,
+                        unsigned short rnum, unsigned long laddr)
 {
   volatile struct sock *s;
   PRINTK ("get_sock (prot=%X, num=%d, raddr=%X, rnum=%d, laddr=%X)\n",
-	  prot, num, raddr, rnum, laddr);
+        prot, num, raddr, rnum, laddr);
 
   /* SOCK_ARRAY_SIZE must be a power of two.  This will work better
      than a prime unless 3 or more sockets end up using the same
@@ -1601,16 +1604,16 @@ volatile struct sock *get_sock (struct proto *prot, unsigned short num,
   for (s=prot->sock_array[num&(SOCK_ARRAY_SIZE-1)]; s != NULL; s=s->next)
     {
       if (s->num == num)
-	{
-	  /* we need to see if this is the socket that we want. */
-	  if (!ip_addr_match (s->daddr, raddr))
-	    continue;
-	  if (s->dummy_th.dest != rnum && s->dummy_th.dest != 0)
-	    continue;
-	  if (!ip_addr_match (s->saddr, laddr))
-	    continue;
-	  return (s);
-	}
+      {
+        /* we need to see if this is the socket that we want. */
+        if (!ip_addr_match (s->daddr, raddr))
+          continue;
+        if (s->dummy_th.dest != rnum && s->dummy_th.dest != 0)
+          continue;
+        if (!ip_addr_match (s->saddr, laddr))
+          continue;
+        return (s);
+      }
     }
   return (NULL);
 }
@@ -1630,22 +1633,22 @@ void release_sock (volatile struct sock *sk)
       PRINTK ("release_sock: skb = %X:\n",skb);
       print_skb(skb);
       if (skb->next != skb)
-	{
-	  sk->back_log = skb->next;
-	  skb->prev->next = skb->next;
-	  skb->next->prev = skb->prev;
-	}
+      {
+        sk->back_log = skb->next;
+        skb->prev->next = skb->next;
+        skb->next->prev = skb->prev;
+      }
       else
-	{
-	  sk->back_log = NULL;
-	}
+      {
+        sk->back_log = NULL;
+      }
       sti();
       PRINTK ("sk->back_log = %X\n",sk->back_log);
       if (sk->prot->rcv)
-	sk->prot->rcv(skb, skb->dev, sk->opt,
-		      skb->saddr, skb->len, skb->daddr, 1,
-		      /* only used for/by raw sockets. */
-		      (struct ip_protocol *)sk->pair); 
+      sk->prot->rcv(skb, skb->dev, sk->opt,
+                  skb->saddr, skb->len, skb->daddr, 1,
+                  /* only used for/by raw sockets. */
+                  (struct ip_protocol *)sk->pair); 
       cli();
     }
   sk->blog = 0;

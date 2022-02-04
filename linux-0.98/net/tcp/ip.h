@@ -67,19 +67,19 @@ struct options
 };
 
 
-
+// IP头
 struct ip_header
 {
-  unsigned char ihl:4, version:4;
-  unsigned char tos;
-  unsigned short tot_len;
-  unsigned short id;
-  unsigned short frag_off;
-  unsigned char ttl;
-  unsigned char protocol;
-  unsigned short check;
-  unsigned long saddr;
-  unsigned long daddr;
+  unsigned char ihl:4, version:4;  // 8位，高4位首部长度+低4位版本号
+  unsigned char tos;  // 8位服务类型
+  unsigned short tot_len;  // 16位总长度
+  unsigned short id;  // 16位标志
+  unsigned short frag_off;  // 16位，高13位片偏移+低3位标志
+  unsigned char ttl;  // 8位生存时间
+  unsigned char protocol;  // 8位协议
+  unsigned short check;  // 16位校验和
+  unsigned long saddr;  // 32位源地址
+  unsigned long daddr;  // 32位目的地址
   /*The options start here. */
 };
 

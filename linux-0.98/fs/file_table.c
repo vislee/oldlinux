@@ -9,6 +9,7 @@
 
 struct file file_table[NR_FILE];
 
+// 获取一个空闲file结构体
 struct file * get_empty_filp(void)
 {
 	int i;

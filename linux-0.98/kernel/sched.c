@@ -230,16 +230,23 @@ static inline void __sleep_on(struct wait_queue **p, int state)
 
 	if (!p)
 		return;
+	// 进程0不能睡眠
 	if (current == task[0])
 		panic("task[0] trying to sleep");
+	// 已经因为等待资源而睡眠了
 	if (current->wait.next)
 		printk("__sleep_on: wait->next exists\n");
+	// 保存状态寄存器，并关闭中断
 	__asm__ __volatile__("pushfl ; popl %0 ; cli":"=r" (flags));
 	current->state = state;
+	// 当前进程添加到等待队列
 	add_wait_queue(p,&current->wait);
-	sti();
+	sti(); // 允许中断
+	// 重新选择进程调度执行
 	schedule();
+	// 当前进程被唤醒，从等待队列移除
 	remove_wait_queue(p,&current->wait);
+	// 还原状态寄存器
 	__asm__("pushl %0 ; popfl"::"r" (flags));
 }
 
@@ -248,6 +255,7 @@ void interruptible_sleep_on(struct wait_queue **p)
 	__sleep_on(p,TASK_INTERRUPTIBLE);
 }
 
+// 不可中断的睡眠状态，只能调用wake_up唤醒
 void sleep_on(struct wait_queue **p)
 {
 	__sleep_on(p,TASK_UNINTERRUPTIBLE);

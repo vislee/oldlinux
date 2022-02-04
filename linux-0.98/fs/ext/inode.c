@@ -346,6 +346,8 @@ struct buffer_head * ext_bread(struct inode * inode, int block, int create)
 	return NULL;
 }
 
+
+// 从ext文件系统读取inode到内存中
 void ext_read_inode(struct inode * inode)
 {
 	struct buffer_head * bh;
@@ -371,9 +373,9 @@ void ext_read_inode(struct inode * inode)
 	brelse(bh);
 	inode->i_op = NULL;
 	if (S_ISREG(inode->i_mode))
-		inode->i_op = &ext_file_inode_operations;
+		inode->i_op = &ext_file_inode_operations;  // 普通文件操作回调函数集
 	else if (S_ISDIR(inode->i_mode))
-		inode->i_op = &ext_dir_inode_operations;
+		inode->i_op = &ext_dir_inode_operations;   // 目录文件操作回调函数集
 	else if (S_ISLNK(inode->i_mode))
 		inode->i_op = &ext_symlink_inode_operations;
 	else if (S_ISCHR(inode->i_mode))
@@ -390,6 +392,8 @@ void ext_read_inode(struct inode * inode)
 	}
 }
 
+// 把内存中的inode写入ext文件系统中
+// 实际上该函数也没有正真的写入磁盘，而是写入缓冲块中
 void ext_write_inode(struct inode * inode)
 {
 	struct buffer_head * bh;

@@ -59,15 +59,15 @@ get_protocol(unsigned char prot)
    hash = prot & (MAX_IP_PROTOS -1);
    for (p = ip_protos[hash] ; p != NULL; p=p->next)
      {
-	PRINTK ("trying protocol %d\n", p->protocol);
-	if (p->protocol == prot)
-	     return (p);
+      PRINTK ("trying protocol %d\n", p->protocol);
+      if (p->protocol == prot)
+           return (p);
      }
    return (NULL);
     
 }
 #endif
-
+// IP报分用支持的协议
 void
 add_ip_protocol (struct ip_protocol *prot)
 {
@@ -80,11 +80,11 @@ add_ip_protocol (struct ip_protocol *prot)
    /* set the copy bit if we need to. */
    for (p2 = prot->next; p2 != NULL; p2=p2->next)
      {
-	if (p2->protocol == prot->protocol)
-	  {
-	     prot->copy = 1;
-	     break;
-	  }
+      if (p2->protocol == prot->protocol)
+        {
+           prot->copy = 1;
+           break;
+        }
      }
 
 }
@@ -101,29 +101,29 @@ delete_ip_protocol (struct ip_protocol *prot)
    if (prot == ip_protos[hash])
      {
         ip_protos[hash]=ip_protos[hash]->next;
-	return (0);
+      return (0);
      }
 
    for (p = ip_protos[hash]; p != NULL; p = p->next)
      {
-	/* we have to worry if the protocol being deleted is the
-	   last one on the list, then we may need to reset someones
-	   copied bit. */
-	if (p->next != NULL && p->next == prot)
-	  {
-	     /* if we are the last one with this protocol and
-		there is a previous one, reset its copy bit. */
+      /* we have to worry if the protocol being deleted is the
+         last one on the list, then we may need to reset someones
+         copied bit. */
+      if (p->next != NULL && p->next == prot)
+        {
+           /* if we are the last one with this protocol and
+            there is a previous one, reset its copy bit. */
 
-	     if (p->copy == 0 && lp != NULL)
-	       lp->copy = 0;
-	     p->next = prot->next;
-	     return (0);
-	  }
+           if (p->copy == 0 && lp != NULL)
+             lp->copy = 0;
+           p->next = prot->next;
+           return (0);
+        }
 
-	if (p->next != NULL && p->next->protocol == prot->protocol)
-	  {
-	     lp = p;
-	  }
+      if (p->next != NULL && p->next->protocol == prot->protocol)
+        {
+           lp = p;
+        }
      }
    return (-1);
 }
@@ -139,15 +139,15 @@ ip_addr_match (unsigned long addr1, unsigned long addr2)
   for (i = 0; i < 4; i++, addr1 >>= 8, addr2 >>= 8)
     {
       if ((addr1 & 0xff) != (addr2 & 0xff))
-	{
-	  /* the only way this could be a match is for the rest of
-	     addr1 to be 0. */
-	  if (addr1 != 0) 
-	    {
-	      return (0);
-	    }
-	  return (1);
-	}
+      {
+        /* the only way this could be a match is for the rest of
+           addr1 to be 0. */
+        if (addr1 != 0) 
+          {
+            return (0);
+          }
+        return (1);
+      }
     }
   return (1);
 }
@@ -186,7 +186,7 @@ void
 print_ipprot (struct ip_protocol *ipprot)
 {
    PRINTK ("handler = %X, protocol = %d\n",
-	   ipprot->handler, ipprot->protocol);
+         ipprot->handler, ipprot->protocol);
 }
 
 /* This assumes that address are all in net order. */
@@ -200,10 +200,10 @@ ip_route(struct options *opt, unsigned long daddr , unsigned long *raddr)
     {
       /* see if we found one. */
       if (ip_addr_match (rt->net, daddr))
-	{
-	  *raddr = rt->router;
-	  return (rt->dev);
-	}
+      {
+        *raddr = rt->router;
+        return (rt->dev);
+      }
     }
   return (NULL);
 };
@@ -230,10 +230,10 @@ add_route (struct rtable *rt)
   for (mask = 0xff000000; mask != 0xffffffff; mask = (mask >> 8) | mask)
     {
       if (mask & rt->net)
-	{
-	  mask = mask << 8;
-	  break;
-	}
+      {
+        mask = mask << 8;
+        break;
+      }
     }
   PRINTK ("mask = %X\n",mask);
   r1=rt_base;
@@ -241,35 +241,35 @@ add_route (struct rtable *rt)
     {
        /* see if we are getting a duplicate. */
        if (r->net == rt->net)
-	 {
-	    if (r == rt_base)
-	      {
-		 rt->next = r->next;
-		 rt_base = rt;
-	      }
-	    else
-	      {
-		 rt->next = r->next;
-		 r1->next = rt;
-	      }
-	    free_s (r, sizeof (*r));
-	    return;
-	 }
+       {
+          if (r == rt_base)
+            {
+             rt->next = r->next;
+             rt_base = rt;
+            }
+          else
+            {
+             rt->next = r->next;
+             r1->next = rt;
+            }
+          free_s (r, sizeof (*r));
+          return;
+       }
 
       if (!(r->net & mask))
-	{
-	   PRINTK("adding before r=%X\n",r);
-	   print_rt(r);
-	   if (r == rt_base)
-	     {
-		rt->next = rt_base;
-		rt_base = rt;
-		return;
-	     }
-	   rt->next = r;
-	   r1->next = rt;
-	   return;
-	}
+      {
+         PRINTK("adding before r=%X\n",r);
+         print_rt(r);
+         if (r == rt_base)
+           {
+            rt->next = rt_base;
+            rt_base = rt;
+            return;
+           }
+         rt->next = r;
+         r1->next = rt;
+         return;
+      }
       r1 = r;
     }
   PRINTK ("adding after r1=%X\n",r1);
@@ -339,12 +339,12 @@ ip_set_dev (struct ip_config *u_ipc)
   if (dev->up)
     {
        if (dev->open)
-	 dev->open(dev);
+       dev->open(dev);
     }
   else
     {
        if (dev->stop)
-	 dev->stop(dev);
+       dev->stop(dev);
     }
   return (0);
 
@@ -374,8 +374,8 @@ build_options (struct ip_header *iph, struct options *opt)
 
 int
 ip_build_header (struct sk_buff *skb, unsigned long saddr,
-		 unsigned long daddr, struct device **dev, int type,
-		 struct options *opt, int len)
+             unsigned long daddr, struct device **dev, int type,
+             struct options *opt, int len)
 {
   static struct options optmem;
   struct ip_header *iph;
@@ -385,17 +385,17 @@ ip_build_header (struct sk_buff *skb, unsigned long saddr,
   int tmp;
   if (saddr == 0) saddr = MY_IP_ADDR;
   PRINTK ("ip_build_header (skb=%X, saddr=%X, daddr=%X, *dev=%X,\n"
-	  "                 type=%d, opt=%X, len = %d)\n",
-	  skb, saddr, daddr, *dev, type, opt, len);
+        "                 type=%d, opt=%X, len = %d)\n",
+        skb, saddr, daddr, *dev, type, opt, len);
   buff = (unsigned char *)(skb + 1);
   /* see if we need to look up the device. */
   if (*dev == NULL)
     {
       *dev = ip_route(&optmem,daddr, &raddr);
       if (*dev == NULL)
-	{
-	  return (-ENETUNREACH);
-	}
+      {
+        return (-ENETUNREACH);
+      }
       opt = &optmem;
     }
   else
@@ -468,125 +468,125 @@ do_options(struct ip_header *iph, struct options *opt)
   while (!done && len < iph->ihl*4)
     {
       switch (*buff)
-	{
-	case IPOPT_END:
-	  done=1;
-	  break;
+      {
+      case IPOPT_END:
+        done=1;
+        break;
 
-	case IPOPT_NOOP:
-	  buff++;
-	  len ++;
-	  break;
+      case IPOPT_NOOP:
+        buff++;
+        len ++;
+        break;
 
-	case IPOPT_SEC:
-	  buff++;
-	  if (*buff != 11)
-	    return (1);
-	  buff++;
-	  opt->security = net16(*(unsigned short *)buff);
-	  buff += 2;
-	  opt->compartment = net16(*(unsigned short *)buff);
-	  buff += 2;
-	  opt-> handling = net16(*(unsigned short *)buff);
-	  buff += 2;
-	  opt->tcc = ((*buff) << 16) + net16(*(unsigned short *)(buff+1));
-	  buff += 3;
-	  len += 11;
-	  break;
+      case IPOPT_SEC:
+        buff++;
+        if (*buff != 11)
+          return (1);
+        buff++;
+        opt->security = net16(*(unsigned short *)buff);
+        buff += 2;
+        opt->compartment = net16(*(unsigned short *)buff);
+        buff += 2;
+        opt-> handling = net16(*(unsigned short *)buff);
+        buff += 2;
+        opt->tcc = ((*buff) << 16) + net16(*(unsigned short *)(buff+1));
+        buff += 3;
+        len += 11;
+        break;
 
-	case IPOPT_LSRR:
-	  buff ++;
-	  if ((*buff - 3)% 4 != 0) return (1);
-	  len += *buff;
-	  opt->loose_route.route_size = (*buff -3)/4;
-	  buff ++;
-	  if (*buff % 4 != 0) return (1);
-	  opt->loose_route.pointer = *buff/4 - 1;
-	  buff ++;
-	  buff ++;
-	  for (i = 0; i < opt->loose_route.route_size; i++)
-	    {
-	      opt->loose_route.route[i]=*(unsigned long *)buff;
-	      buff += 4;
-	    }
-	  break;
+      case IPOPT_LSRR:
+        buff ++;
+        if ((*buff - 3)% 4 != 0) return (1);
+        len += *buff;
+        opt->loose_route.route_size = (*buff -3)/4;
+        buff ++;
+        if (*buff % 4 != 0) return (1);
+        opt->loose_route.pointer = *buff/4 - 1;
+        buff ++;
+        buff ++;
+        for (i = 0; i < opt->loose_route.route_size; i++)
+          {
+            opt->loose_route.route[i]=*(unsigned long *)buff;
+            buff += 4;
+          }
+        break;
 
 
-	case IPOPT_SSRR:
-	  buff ++;
-	  if ((*buff - 3)% 4 != 0) return (1);
-	  len += *buff;
-	  opt->strict_route.route_size = (*buff -3)/4;
-	  buff ++;
-	  if (*buff % 4 != 0) return (1);
-	  opt->strict_route.pointer = *buff/4 - 1;
-	  buff ++;
-	  buff ++;
-	  for (i = 0; i < opt->strict_route.route_size; i++)
-	    {
-	      opt->strict_route.route[i]=*(unsigned long *)buff;
-	      buff += 4;
-	    }
-	  break;
+      case IPOPT_SSRR:
+        buff ++;
+        if ((*buff - 3)% 4 != 0) return (1);
+        len += *buff;
+        opt->strict_route.route_size = (*buff -3)/4;
+        buff ++;
+        if (*buff % 4 != 0) return (1);
+        opt->strict_route.pointer = *buff/4 - 1;
+        buff ++;
+        buff ++;
+        for (i = 0; i < opt->strict_route.route_size; i++)
+          {
+            opt->strict_route.route[i]=*(unsigned long *)buff;
+            buff += 4;
+          }
+        break;
 
-	case IPOPT_RR:
-	  buff ++;
-	  if ((*buff - 3)% 4 != 0) return (1);
-	  len += *buff;
-	  opt->record_route.route_size = (*buff -3)/4;
-	  buff ++;
-	  if (*buff % 4 != 0) return (1);
-	  opt->record_route.pointer = *buff/4 - 1;
-	  buff ++;
-	  buff ++;
-	  for (i = 0; i < opt->record_route.route_size; i++)
-	    {
-	      opt->record_route.route[i]=*(unsigned long *)buff;
-	      buff += 4;
-	    }
-	  break;
+      case IPOPT_RR:
+        buff ++;
+        if ((*buff - 3)% 4 != 0) return (1);
+        len += *buff;
+        opt->record_route.route_size = (*buff -3)/4;
+        buff ++;
+        if (*buff % 4 != 0) return (1);
+        opt->record_route.pointer = *buff/4 - 1;
+        buff ++;
+        buff ++;
+        for (i = 0; i < opt->record_route.route_size; i++)
+          {
+            opt->record_route.route[i]=*(unsigned long *)buff;
+            buff += 4;
+          }
+        break;
 
-	case IPOPT_SID:
-	  len += 4;
-	  buff +=2;
-	  opt->stream = *(unsigned short *)buff;
-	  buff += 2;
-	  break;
+      case IPOPT_SID:
+        len += 4;
+        buff +=2;
+        opt->stream = *(unsigned short *)buff;
+        buff += 2;
+        break;
 
-	case IPOPT_TIMESTAMP:
-	  buff ++;
-	  len += *buff;
-	  if (*buff % 4 != 0) return (1);
-	  opt->tstamp.len = *buff / 4 - 1;
-	  buff ++;
-	  if ((*buff - 1) % 4 != 0) return (1);
-	  opt->tstamp.ptr = (*buff-1)/4;
-	  buff ++;
-	  opt->tstamp.x.full_char = *buff;
-	  buff ++;
-	  for (i = 0; i < opt->tstamp.len; i++)
-	    {
-	      opt->tstamp.data[i] = *(unsigned long *)buff;
-	      buff += 4;
-	    }
-	  break;
+      case IPOPT_TIMESTAMP:
+        buff ++;
+        len += *buff;
+        if (*buff % 4 != 0) return (1);
+        opt->tstamp.len = *buff / 4 - 1;
+        buff ++;
+        if ((*buff - 1) % 4 != 0) return (1);
+        opt->tstamp.ptr = (*buff-1)/4;
+        buff ++;
+        opt->tstamp.x.full_char = *buff;
+        buff ++;
+        for (i = 0; i < opt->tstamp.len; i++)
+          {
+            opt->tstamp.data[i] = *(unsigned long *)buff;
+            buff += 4;
+          }
+        break;
 
-	default:
-	  return (1);
-	}
+      default:
+        return (1);
+      }
     }
   if (opt->record_route.route_size == 0)
     {
       if (opt->strict_route.route_size != 0)
-	{
-	  memcpy (&(opt->record_route), &(opt->strict_route),
-		  sizeof (opt->record_route));
-	}
+      {
+        memcpy (&(opt->record_route), &(opt->strict_route),
+              sizeof (opt->record_route));
+      }
       else if (opt->loose_route.route_size != 0)
-	{
-	  memcpy (&(opt->record_route), &(opt->loose_route),
-		  sizeof (opt->record_route));
-	}
+      {
+        memcpy (&(opt->record_route), &(opt->loose_route),
+              sizeof (opt->record_route));
+      }
     }
 
   if (opt->strict_route.route_size != 0 &&
@@ -618,37 +618,37 @@ ip_compute_csum(unsigned char * buff, int len)
     {
        /* do the first multiple of 4 bytes and convert to 16 bits. */
        __asm__("\t clc\n"
-	       "1:\n"
-	       "\t lodsl\n"
-	       "\t adcl %%eax, %%ebx\n"
-	       "\t loop 1b\n"
-	       "\t adcl $0, %%ebx\n"
-	       "\t movl %%ebx, %%eax\n"
-	       "\t shrl $16, %%eax\n"
-	       "\t addw %%ax, %%bx\n"
-	       "\t adcw $0, %%bx\n"
-	       : "=b" (sum) , "=S" (buff)
-	       : "0" (sum), "c" (len >> 2) ,"1" (buff)
-	       : "ax", "cx", "si", "bx" );
+             "1:\n"
+             "\t lodsl\n"
+             "\t adcl %%eax, %%ebx\n"
+             "\t loop 1b\n"
+             "\t adcl $0, %%ebx\n"
+             "\t movl %%ebx, %%eax\n"
+             "\t shrl $16, %%eax\n"
+             "\t addw %%ax, %%bx\n"
+             "\t adcw $0, %%bx\n"
+             : "=b" (sum) , "=S" (buff)
+             : "0" (sum), "c" (len >> 2) ,"1" (buff)
+             : "ax", "cx", "si", "bx" );
     }
   if (len & 2)
     {
        __asm__("\t lodsw\n"
-	       "\t addw %%ax, %%bx\n"
-	       "\t adcw $0, %%bx\n"
-	       : "=b" (sum), "=S" (buff)
-	       : "0" (sum), "1" (buff)
-	       : "bx", "ax", "si");
+             "\t addw %%ax, %%bx\n"
+             "\t adcw $0, %%bx\n"
+             : "=b" (sum), "=S" (buff)
+             : "0" (sum), "1" (buff)
+             : "bx", "ax", "si");
     }
   if (len & 1)
     {
        __asm__("\t lodsb\n"
-	       "\t movb $0, %%ah\n"
-	       "\t addw %%ax, %%bx\n"
-	       "\t adcw $0, %%bx\n"
-	       : "=b" (sum), "=S" (buff)
-	       : "0" (sum), "1" (buff)
-	       : "bx", "ax", "si");
+             "\t movb $0, %%ah\n"
+             "\t addw %%ax, %%bx\n"
+             "\t adcw $0, %%bx\n"
+             : "=b" (sum), "=S" (buff)
+             : "0" (sum), "1" (buff)
+             : "bx", "ax", "si");
     }
   sum =~sum;
   return (sum&0xffff);
@@ -676,7 +676,7 @@ ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
   unsigned char hash;
   unsigned char flag=0;
   static struct options opt; /* since we don't use these yet, and they
-				take up stack space. */
+                        take up stack space. */
   struct ip_protocol *ipprot;
 
   iph=skb->h.iph;
@@ -724,24 +724,24 @@ ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
        /* pass it off to everyone who wants it. */
        /* we should check the return values here. */
        /* see if we need to make a copy of it.  This will
-	  only be set if more than one protpocol wants it. 
-	  and then not for the last one. */
+        only be set if more than one protpocol wants it. 
+        and then not for the last one. */
 
        if (ipprot->copy)
-	 {
-	    skb2 = malloc (skb->mem_len);
-	    if (skb2 == NULL) continue;
-	    memcpy (skb2, skb, skb->mem_len);
-	    skb2->mem_addr = skb2;
-	 }
+       {
+          skb2 = malloc (skb->mem_len);
+          if (skb2 == NULL) continue;
+          memcpy (skb2, skb, skb->mem_len);
+          skb2->mem_addr = skb2;
+       }
        else
-	 {
-	    skb2 = skb;
-	 }
+       {
+          skb2 = skb;
+       }
        flag = 1;
        ipprot->handler (skb2, dev, &opt, iph->daddr,
-			net16(iph->tot_len) - iph->ihl*4,
-			iph->saddr, 0, ipprot);
+                  net16(iph->tot_len) - iph->ihl*4,
+                  iph->saddr, 0, ipprot);
 
     }
   if (!flag)
@@ -763,7 +763,7 @@ ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
    the checksum. */
 void
 ip_queue_xmit (volatile struct sock *sk, struct device *dev, 
-	       struct sk_buff *skb, int free)
+             struct sk_buff *skb, int free)
 {
   struct ip_header *iph;
   unsigned char *ptr;
@@ -785,15 +785,15 @@ ip_queue_xmit (volatile struct sock *sk, struct device *dev,
       sk->packets_out++;
       cli();
       if (sk->send_tail == NULL)
-	{
-	  sk->send_tail = skb;
-	  sk->send_head = skb;
-	}
+      {
+        sk->send_tail = skb;
+        sk->send_head = skb;
+      }
       else
-	{
-	  sk->send_tail->link3 = skb;
-	  sk->send_tail = skb;
-	}
+      {
+        sk->send_tail->link3 = skb;
+        sk->send_tail = skb;
+      }
       sti();
       sk->time_wait.len = sk->rtt*2;
       sk->timeout=TIME_WRITE;
@@ -806,14 +806,14 @@ ip_queue_xmit (volatile struct sock *sk, struct device *dev,
   if (dev->up)
     {
        if (sk)
-	 dev->queue_xmit(skb, dev, sk->priority);
+       dev->queue_xmit(skb, dev, sk->priority);
        else
-	 dev->queue_xmit (skb, dev, SOPRI_NORMAL);
+       dev->queue_xmit (skb, dev, SOPRI_NORMAL);
     }
   else
     {
        if (free) 
-	 free_skb (skb, FREE_WRITE);
+       free_skb (skb, FREE_WRITE);
     }
 }
 
@@ -830,30 +830,30 @@ ip_retransmit (volatile struct sock *sk, int all)
     {
       dev = skb->dev;
       /* rebuild_header sees if the arp is done.  If not it sends a new
-	 arp, and if so it builds the header. */
+       arp, and if so it builds the header. */
       if (!skb->arp)
-	{
-	  if (dev->rebuild_header ((struct enet_header *)(skb+1),dev))
-	    {
-	       if (!all) break;
-	       skb=skb->link3;
-	       continue;
-	    }
+      {
+        if (dev->rebuild_header ((struct enet_header *)(skb+1),dev))
+          {
+             if (!all) break;
+             skb=skb->link3;
+             continue;
+          }
        }
       skb->arp = 1;
       skb->when = jiffies;
 
       if (dev->up)
-	if (sk)
-	  dev->queue_xmit(skb, dev, sk->priority);
-	else
-	  dev->queue_xmit(skb, dev, SOPRI_NORMAL );
+      if (sk)
+        dev->queue_xmit(skb, dev, sk->priority);
+      else
+        dev->queue_xmit(skb, dev, SOPRI_NORMAL );
 
       sk->retransmits++;
       sk->prot->retransmits ++;
       if (!all) break;
       /* this should cut it off before we send too
-	 many packets. */
+       many packets. */
       if (sk->retransmits > sk->cong_window) break;
       skb=skb->link3;
     }
@@ -867,9 +867,9 @@ print_iph (struct ip_header *ip)
 {
   PRINTK ("ip header:\n");
   PRINTK ("  ihl = %d, version = %d, tos = %d, tot_len = %d\n",
-	  ip->ihl, ip->version, ip->tos, net16(ip->tot_len));
+        ip->ihl, ip->version, ip->tos, net16(ip->tot_len));
   PRINTK ("  id = %x, ttl = %d, prot = %d, check=%x\n",
-	  ip->id, ip->ttl, ip->protocol, ip->check);
+        ip->id, ip->ttl, ip->protocol, ip->check);
   PRINTK (" frag_off=%d\n", ip->frag_off);
   PRINTK ("  saddr = %X, daddr = %X\n",ip->saddr, ip->daddr);
 }
@@ -884,22 +884,22 @@ ip_handoff (volatile struct sock *sk)
 
    if (p == NULL)
      {
-	/* this can never happen. */
-	printk ("sock_ioctl: protocol not found. \n");
-	/* what else can I do, I suppose I could send a sigkill. */
-	return (-EIO);
+      /* this can never happen. */
+      printk ("sock_ioctl: protocol not found. \n");
+      /* what else can I do, I suppose I could send a sigkill. */
+      return (-EIO);
      }
 
    while (p->handler != sk->prot->rcv)
      {
-	p=p->next;
-	if (p == NULL)
-	  {
-	     /* this can never happen. */
-	     printk ("sock_ioctl: protocol not found. \n");
-	     /* what else can I do, I suppose I could send a sigkill. */
-	     return (-EIO);
-	  }
+      p=p->next;
+      if (p == NULL)
+        {
+           /* this can never happen. */
+           printk ("sock_ioctl: protocol not found. \n");
+           /* what else can I do, I suppose I could send a sigkill. */
+           return (-EIO);
+        }
      }
    p = p-> next;
    sk->inuse = 1;
@@ -910,18 +910,18 @@ ip_handoff (volatile struct sock *sk)
    skb = sk->rqueue;
    if (skb->next == skb)
      {
-	sk->rqueue = NULL;
+      sk->rqueue = NULL;
      }
    else
      {
-	sk->rqueue = skb->next;
-	skb->next->prev = skb->prev;
-	skb->prev->next = skb->next;
+      sk->rqueue = skb->next;
+      skb->next->prev = skb->prev;
+      skb->prev->next = skb->next;
      }
    if (p != NULL)
      {
-	p->handler ((unsigned char *)(skb+1), skb->dev, NULL, skb->saddr,
-		    skb->len, skb->daddr, p->protocol, 0);
+      p->handler ((unsigned char *)(skb+1), skb->dev, NULL, skb->saddr,
+                skb->len, skb->daddr, p->protocol, 0);
      }
    free_skb (skb, FREE_READ);
    release_sock (sk);

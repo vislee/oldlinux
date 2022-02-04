@@ -248,6 +248,7 @@ static inline int wait_DRQ(void)
 #define STAT_MASK (BUSY_STAT | READY_STAT | WRERR_STAT | SEEK_STAT | ERR_STAT)
 #define STAT_OK (READY_STAT | SEEK_STAT)
 
+// 硬盘读回调函数
 static void read_intr(void)
 {
 	int i;
@@ -598,14 +599,19 @@ static struct sigaction hd_sigaction = {
 	NULL
 };
 
+// 硬盘初始化
 unsigned long hd_init(unsigned long mem_start, unsigned long mem_end)
 {
-	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;
+	// 注册到块设备，电梯队列执行时回调函数。
+	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST; // do_hd_request
+	// 对应块设备操作回调函数
 	blkdev_fops[MAJOR_NR] = &hd_fops;
 	hd_gendisk.next = gendisk_head;
 	gendisk_head = &hd_gendisk;
+	// 硬盘中断回调函数
 	if (irqaction(HD_IRQ,&hd_sigaction))
 		printk("Unable to get IRQ%d for the harddisk driver\n",HD_IRQ);
+	// 注册定时回调函数
 	timer_table[HD_TIMER].fn = hd_times_out;
 	return mem_start;
 }

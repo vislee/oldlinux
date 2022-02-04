@@ -32,12 +32,13 @@ struct sock
   struct options *opt;
   unsigned long wmem_alloc;
   unsigned long rmem_alloc;
-  unsigned long send_seq;
+  unsigned long send_seq;  // 序列号
   unsigned long acked_seq;
   unsigned long copied_seq;
-  unsigned long rcv_ack_seq;
+  unsigned long rcv_ack_seq;  // 接收应答序列号
   unsigned long window_seq;
   unsigned long fin_seq;
+  // reuse-可以重用 keepopen-保活
   unsigned long inuse:1, dead:1, urginline:1,
                 intr:1, blog:1, done:1, reuse:1, keepopen:1, linger:1,
                 delay_acks:1, timeout:3, destroy:1, ack_timed:1, no_check:1,
@@ -49,27 +50,27 @@ struct sock
   struct sk_buff *send_head;
   struct sk_buff *back_log;
   long retransmits;
-  struct sk_buff *wback, *wfront, *rqueue;
+  struct sk_buff *wback, *wfront, /* 发送队列 */ *rqueue; // 接收队列
   struct proto *prot;
   struct wait_queue **sleep;
-  unsigned long daddr;
-  unsigned long saddr;
+  unsigned long daddr; // 服务端地址
+  unsigned long saddr; // bind的地址
   unsigned short max_unacked;
   unsigned short window;
   unsigned short bytes_rcv;
   unsigned short mtu;
-  unsigned short num;
+  unsigned short num; // 端口号？
   unsigned short cong_window;
-  unsigned short packets_out;
+  unsigned short packets_out; // 发出的包个数
   unsigned short urg;
-  unsigned short shutdown;
+  unsigned short shutdown; // 半关闭
   short rtt;
   unsigned char protocol;
-  unsigned char state;
+  unsigned char state; // tcp状态
   unsigned char ack_backlog;
   unsigned char err;
   unsigned char max_ack_backlog;
-  unsigned char priority;
+  unsigned char priority; // 设置优先级
   struct tcp_header dummy_th; /* I may be able to get rid of this. */
   struct timer time_wait;
 };
@@ -112,7 +113,7 @@ struct proto
   int (*init) (volatile struct sock *sk);
   unsigned short max_header;
   unsigned long retransmits;
-  volatile struct sock *sock_array[SOCK_ARRAY_SIZE];
+  volatile struct sock *sock_array[SOCK_ARRAY_SIZE];  // hash表，根据端口号hash
 };
 
 #define TIME_WRITE 1
@@ -131,10 +132,10 @@ struct sk_buff
   struct sk_buff *next;
   struct sk_buff *prev;
   struct sk_buff *link3;
-  volatile struct sock *sk;
+  volatile struct sock *sk;  // 引用的sock结构体
   unsigned long when; /* used to compute rtt's. */
   struct device *dev;
-  void *mem_addr;
+  void *mem_addr;  // 结构体内存起始地址
   union
     {
        struct tcp_header *th;
@@ -145,8 +146,8 @@ struct sk_buff
        unsigned char *raw;
        unsigned long seq;
     } h;
-  unsigned long mem_len;
-  unsigned long len;
+  unsigned long mem_len; // 分配的内存大小
+  unsigned long len;  // MAC地址长度？
   unsigned long saddr;
   unsigned long daddr;
   unsigned long acked:1,used:1,free:1,arp:1, urg_used:1, lock:1;

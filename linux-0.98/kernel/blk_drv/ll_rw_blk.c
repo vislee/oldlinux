@@ -103,6 +103,9 @@ void set_device_ro(int dev,int flag)
  * It disables interrupts so that it can muck with the
  * request-lists in peace.
  */
+// 添加到电梯队列，如果电梯队列没请求，添加进去的就调度执行。
+// 如果电梯队列已经有请求排队执行，则等待被前面的请求调度执行。
+// 只能插到已调度执行队列的后面
 static void add_request(struct blk_dev_struct * dev, struct request * req)
 {
 	struct request * tmp;
@@ -113,7 +116,7 @@ static void add_request(struct blk_dev_struct * dev, struct request * req)
 		req->bh->b_dirt = 0;
 	if (!(tmp = dev->current_request)) {
 		dev->current_request = req;
-		(dev->request_fn)();
+		(dev->request_fn)(); // 电梯队列开始执行
 		sti();
 		return;
 	}
@@ -128,6 +131,7 @@ static void add_request(struct blk_dev_struct * dev, struct request * req)
 	sti();
 }
 
+// 构建块设备读/写请求
 static void make_request(int major,int rw, struct buffer_head * bh)
 {
 	unsigned int sector, count;
@@ -148,8 +152,9 @@ static void make_request(int major,int rw, struct buffer_head * bh)
 		printk("Bad block dev command, must be R/W/RA/WA\n");
 		return;
 	}
-	count = bh->b_size >> 9;
+	count = bh->b_size >> 9;  // 外设块大小：512B。
 	sector = bh->b_blocknr * count;
+	// 判断是否已经超过块设备的块的个数
 	if (blk_size[major])
 		if (blk_size[major][MINOR(bh->b_dev)] < (sector + count)>>1) {
 			bh->b_dirt = bh->b_uptodate = 0;
@@ -162,6 +167,7 @@ static void make_request(int major,int rw, struct buffer_head * bh)
 	}
 repeat:
 	cli();
+	// 一个缓冲块是1K大小，当需要读/写大于1K时
 	if ((major == 3 ||  major == 8 || major == 11)&& (req = blk_dev[major].current_request)) {
 		while (req = req->next) {
 			if (req->dev == bh->b_dev &&
@@ -182,11 +188,14 @@ repeat:
  * we want some room for reads: they take precedence. The last third
  * of the requests are only for reads.
  */
+	// 从请求结构体队列中获取一个空闲请求，
+	// 写请求只能占用请求结构体队列前一半。读请求优先。。。上述已经说明的很清楚了。
 	if (rw == READ)
-		req = request+NR_REQUEST;
+		req = request+NR_REQUEST;   // 请求结构体
 	else
-		req = request+(NR_REQUEST/2);
+		req = request+(NR_REQUEST/2);  // 请求队列前一半
 /* find an empty request */
+	// 从后向前找一个空闲请求结构体
 	while (--req >= request)
 		if (req->dev < 0)
 			goto found;
@@ -196,6 +205,7 @@ repeat:
 		unlock_buffer(bh);
 		return;
 	}
+	// 没有空闲的块设备请求结构体，挂起当前进程。
 	sleep_on(&wait_for_request);
 	sti();
 	goto repeat;
@@ -214,6 +224,7 @@ found:
 	req->bh = bh;
 	req->bhtail = bh;
 	req->next = NULL;
+	// 添加到对应外设电梯队列中
 	add_request(major+blk_dev,req);
 }
 
@@ -259,35 +270,41 @@ repeat:
 	schedule();
 }
 
+// 块设备读写函数
 void ll_rw_block(int rw, struct buffer_head * bh)
 {
 	unsigned int major;
 
 	if (!bh)
 		return;
+	// 只支持1K大小的缓冲块
 	if (bh->b_size != 1024) {
 		printk("ll_rw_block: only 1024-char blocks implemented (%d)\n",bh->b_size);
 		bh->b_dirt = bh->b_uptodate = 0;
 		return;
 	}
+	// 对应的块设备是否注册
 	if ((major=MAJOR(bh->b_dev)) >= NR_BLK_DEV ||
 	!(blk_dev[major].request_fn)) {
 		printk("ll_rw_block: Trying to read nonexistent block-device %04x (%d)\n",bh->b_dev,bh->b_blocknr);
 		bh->b_dirt = bh->b_uptodate = 0;
 		return;
 	}
+	// 块设备是否可写
 	if ((rw == WRITE || rw == WRITEA) && is_read_only(bh->b_dev)) {
 		printk("Can't write to read-only device 0x%X\n\r",bh->b_dev);
 		bh->b_dirt = bh->b_uptodate = 0;
 		return;
 	}
+	// 构建读写请求，添加到块设备的电梯队列
 	make_request(major,rw,bh);
 }
 
+// 块设别初始化
 long blk_dev_init(long mem_start, long mem_end)
 {
 	int i;
-
+	// 初始化块设备请求结构体
 	for (i=0 ; i<NR_REQUEST ; i++) {
 		request[i].dev = -1;
 		request[i].next = NULL;

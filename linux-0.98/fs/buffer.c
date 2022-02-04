@@ -40,14 +40,16 @@ static struct wait_queue * buffer_wait = NULL;
 int nr_buffers = 0;
 int nr_buffer_heads = 0;
 
+// 如果缓存块被其他进程占用，则挂起本进程，等待被唤醒后再调度
 static inline void wait_on_buffer(struct buffer_head * bh)
 {
 	cli();
 	while (bh->b_lock)
-		sleep_on(&bh->b_wait);
+		sleep_on(&bh->b_wait);  // 当前任务设置为不可中断睡眠状态，挂到b_wait队列睡眠。
 	sti();
 }
 
+// 刷新缓存区，把修改过的缓存块写到磁盘
 static void sync_buffers(int dev)
 {
 	int i;
@@ -57,8 +59,10 @@ static void sync_buffers(int dev)
 	for (i = nr_buffers*2 ; i-- > 0 ; bh = bh->b_next_free) {
 		if (bh->b_lock)
 			continue;
+		// 没有修改的不用写磁盘
 		if (!bh->b_dirt)
 			continue;
+		// 构造写请求，添加到电梯队列
 		ll_rw_block(WRITE,bh);
 	}
 }
@@ -205,11 +209,17 @@ static inline void put_last_free(struct buffer_head * bh)
 		free_list = bh->b_next_free;
 		return;
 	}
-	remove_from_free_list(bh);
+	// 把改缓冲块从free_list中移动最后，LRU队列。
+	remove_from_free_list(bh);  // 从free_list双链表中移除
+	// 添加到free_list双链表最后
 /* add to back of free list */
+	// 队尾节点下一个指向对头
 	bh->b_next_free = free_list;
+	// 队尾节点前一个指向原来双链表的队尾
 	bh->b_prev_free = free_list->b_prev_free;
+	// 原队尾节点下一个指向新的队尾（新加入的节点）
 	free_list->b_prev_free->b_next_free = bh;
+	// 队头节点上一个指向新的队尾
 	free_list->b_prev_free = bh;
 }
 
@@ -231,6 +241,7 @@ static inline void insert_into_queues(struct buffer_head * bh)
 		bh->b_next->b_prev = bh;
 }
 
+// 根据dev和block查找缓存块
 static struct buffer_head * find_buffer(int dev, int block, int size)
 {		
 	struct buffer_head * tmp;
@@ -296,6 +307,8 @@ repeat:
 	buffers = nr_buffers;
 	bh = NULL;
 
+	// 该磁盘块没有在缓冲中
+	// 从空闲缓冲块队列中，找一个最优的缓存块。
 	for (tmp = free_list; buffers-- > 0 ; tmp = tmp->b_next_free) {
 		if (tmp->b_count || tmp->b_size != size)
 			continue;
@@ -310,6 +323,7 @@ repeat:
 #endif
 	}
 
+	// 空闲队列没有合适的缓冲块，则增加缓存块后重新查找空闲队列
 	if (!bh && nr_free_pages > 5) {
 		grow_buffers(size);
 		goto repeat;
@@ -343,6 +357,7 @@ repeat:
 	return bh;
 }
 
+// 释放缓冲块
 void brelse(struct buffer_head * buf)
 {
 	if (!buf)
@@ -365,8 +380,10 @@ struct buffer_head * bread(int dev, int block, int size)
 		printk("bread: getblk returned NULL\n");
 		return NULL;
 	}
+	// 缓冲块的数据已经更新
 	if (bh->b_uptodate)
 		return bh;
+	// 向块发起读/写请求
 	ll_rw_block(READ,bh);
 	wait_on_buffer(bh);
 	if (bh->b_uptodate)
@@ -454,11 +471,17 @@ static void get_more_buffer_heads(void)
 	unsigned long page;
 	struct buffer_head * bh;
 
+	// 缓存块头指针不为空，则还有空闲缓存块头，不需要再分配。
 	if (unused_list)
 		return;
+	// 没有空闲缓冲块头了
+	// 分配一页物理内存
 	page = get_free_page(GFP_KERNEL);
 	if (!page)
 		return;
+	// 把一页物理内存切割成缓存块头结构，通过缓存块头的b_next_free指针串成一个单链表
+	// 单链表头指针是unused_list
+	// nr_buffer_heads 表示的是缓存块头的总个数
 	bh = (struct buffer_head *) page;
 	while ((unsigned long) (bh+1) <= page+4096) {
 		put_unused_buffer_head(bh);
@@ -471,9 +494,11 @@ static struct buffer_head * get_unused_buffer_head(void)
 {
 	struct buffer_head * bh;
 
+	// 分配更多缓存块头
 	get_more_buffer_heads();
 	if (!unused_list)
 		return NULL;
+	// 从空闲缓冲块头队列取一个未使用的缓冲块头结构体
 	bh = unused_list;
 	unused_list = bh->b_next_free;
 	bh->b_next_free = NULL;
@@ -494,25 +519,30 @@ void grow_buffers(int size)
 	int i;
 	struct buffer_head *bh, *tmp;
 
+	// 缓存块大小：512B的倍数，且小于4KB。目前是1KB。
 	if ((size & 511) || (size > 4096)) {
 		printk("grow_buffers: size = %d\n",size);
 		return;
 	}
+	// 分配一页（4K）物理内存
 	page = get_free_page(GFP_BUFFER);
 	if (!page)
 		return;
 	tmp = NULL;
 	i = 0;
 	for (i = 0 ; i+size <= 4096 ; i += size) {
+		// 获取一个未使用的缓存块头
 		bh = get_unused_buffer_head();
 		if (!bh)
 			goto no_grow;
+		// 串成单链表
 		bh->b_this_page = tmp;
 		tmp = bh;
 		bh->b_data = (char * ) (page+i);
 		bh->b_size = size;
 	}
 	tmp = bh;
+	// 遍历1页内存分配的缓存块，插入到free_list的双链表中
 	while (1) {
 		if (free_list) {
 			tmp->b_next_free = free_list;
@@ -621,9 +651,13 @@ void buffer_init(void)
 {
 	int i;
 
+	// 初始化hash表
 	for (i = 0 ; i < NR_HASH ; i++)
 		hash_table[i] = NULL;
+
+	// 空闲队列
 	free_list = 0;
+	// 增加空闲缓冲块，参数为缓存块大小。
 	grow_buffers(BLOCK_SIZE);
 	if (!free_list)
 		panic("Unable to initialize buffer free list!");

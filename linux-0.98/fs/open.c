@@ -331,27 +331,33 @@ int sys_open(const char * filename,int flag,int mode)
 	struct file * f;
 	int i,fd;
 
+	// 从本进程打开文件数组中取一个空槽
 	for(fd=0 ; fd<NR_OPEN ; fd++)
 		if (!current->filp[fd])
 			break;
 	if (fd>=NR_OPEN)
 		return -EMFILE;
+	// 执行exec函数关闭该文件置位
 	current->close_on_exec &= ~(1<<fd);
+	// 获取一个空闲file结构体
 	f = get_empty_filp();
 	if (!f)
 		return -ENFILE;
 	current->filp[fd] = f;
 	f->f_flags = flag;
+	// flag+1的转换见linus的注释
 	if (f->f_mode = (flag+1) & O_ACCMODE)
 		flag++;
 	if (flag & (O_TRUNC | O_CREAT))
 		flag |= 2;
+	// 根据路径名称获取文件的inode，该函数比较复杂。
 	i = open_namei(filename,flag,mode,&inode,NULL);
 	if (i) {
 		current->filp[fd]=NULL;
 		f->f_count--;
 		return i;
 	}
+	// 若设置了清空文件标志，则清空文件
 	if (flag & O_TRUNC)
 		if (inode->i_op && inode->i_op->truncate) {
 			inode->i_size = 0;

@@ -26,15 +26,15 @@ typedef enum {
  */
 struct socket {
 	short type;			/* SOCK_STREAM, ... */
-	socket_state state;
+	socket_state state;  // 标识结构体
 	long flags;
 	struct proto_ops *ops;		/* protocols do most everything */
-	void *data;			/* protocol data */
+	void *data;			/* protocol data */ // 封装了AF_UNIX AF_INET的差异
 	struct socket *conn;		/* server socket connected to */
 	struct socket *iconn;		/* incomplete client connections */
 	struct socket *next;
 	struct wait_queue **wait;	/* ptr to place to wait on */
-	void *dummy;
+	void *dummy;  // 通过get_empty_inode分配的inode节点
 };
 
 struct proto_ops {

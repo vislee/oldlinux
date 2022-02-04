@@ -22,19 +22,20 @@
 #ifndef _TCP_TCP_H
 #define _TCP_TCP_H
 
+// tcp头
 struct tcp_header
 {
-  unsigned short source;
-  unsigned short dest;
-  unsigned long seq;
-  unsigned long ack_seq;
+  unsigned short source;  // 16位源端口号
+  unsigned short dest;    // 16位目的端口号
+  unsigned long seq;      // 32位序列号
+  unsigned long ack_seq;  // 32位确认号
   unsigned short res1:4, doff:4, fin:1, syn:1, rst:1, psh:1,
-                 ack:1, urg:1,res2:2;
-  unsigned short window;
-  unsigned short check;
-  unsigned short urg_ptr;
+                 ack:1, urg:1,res2:2;  // 16位，doff:4位首部长度，res1:4+res2:2共6位保留。
+  unsigned short window;  // 16位窗口大小
+  unsigned short check;   // 16位tcp校验和
+  unsigned short urg_ptr; // 16位紧急指针
 };
-
+// tcp状态机
 enum {
   TCP_ESTABLISHED=1,
   TCP_SYN_SENT,

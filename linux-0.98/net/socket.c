@@ -167,6 +167,7 @@ sock_alloc(int wait)
 				 * the close system call will iput this inode
 				 * for us.
 				 */
+				// 分配inode
 				if (!(SOCK_INODE(sock) = get_empty_inode())) {
 					printk("sock_alloc: no more inodes\n");
 					sock->state = SS_FREE;
@@ -404,13 +405,13 @@ sock_socket(int family, int type, int protocol)
 	 * locate the correct protocol family
 	 */
 	for (i = 0; i < NPROTO; ++i)
-		if (proto_table[i].family == family)
+		if (proto_table[i].family == family) // AF_UNIX AF_INET
 			break;
 	if (i == NPROTO) {
 		PRINTK("sys_socket: family not found\n");
 		return -EINVAL;
 	}
-	ops = proto_table[i].ops;
+	ops = proto_table[i].ops; // AF_UNIX：unix_proto_ops AF_INET：inet_proto_ops
 
 	/*
 	 * check that this is a type that we know how to manipulate and
@@ -614,6 +615,7 @@ sock_connect(int fd, struct sockaddr *uservaddr, int addrlen)
 		PRINTK("sys_connect: socket not unconnected\n");
 		return -EINVAL;
 	}
+	// inet: ip_proto_connect
 	i = sock->ops->connect(sock, uservaddr, addrlen, file->f_flags);
 	if (i < 0) {
 		PRINTK("sys_connect: connect failed\n");
