@@ -6,6 +6,31 @@
 
 ---
 
+## 版本说明（第三版）
+
+第三版对全书做了一轮**逐章对照源码的勘误与增补**（约 10500 行 → 约 11300 行）：
+
+1. **勘误**：修正了 20 余处事实与行号错误，包括——cdecl 栈布局图三处顺序（ch02）、
+   386 复位取指地址 0xFFFFFFF0 与 QEMU 双镜像启动（ch03）、`do_mmap` 误引改为
+   `current->executable` 按需调页与 task_struct 实际约 1KB（ch04）、CFS `min_vruntime`
+   取值方向与 0.11 空指针写拦截真相（ch06/ch07）、`/bin/ls` 通用二进制魔数
+   `ca fe ba be`（ch09）、"现代 nginx 客户端连接已改回 LT"是以讹传讹（ch11）、
+   as86 与 gas 两套汇编语法归属（附录 B）等；
+2. **理论增补（示例全部取自本仓库）**：缓存层次/TLB/DMA/端口 IO vs MMIO（ch02）、
+   **MLFQ 多级反馈队列**与实时调度类 SCHED_FIFO/RR、每 CPU 运行队列与负载均衡（ch06）、
+   **页替换四算法与颠簸**、buddy/slab 与内外碎片、major/minor 缺页（ch07）、
+   **PIPE_BUF 原子写**、SIGSTOP/SIGCONT、SysV IPC 模型（ch08）、索引/连续/链式分配、
+   atime/mtime/ctime、软链接、页缓存与 buffer cache 分工（ch09）、设备开关表与
+   workqueue/SPOOLing（ch10）、**TCP 可靠传输四件套与 11 态全图**、SYN flood 与
+   syncookies、TIME_WAIT 连出端工程面、五种 I/O 模型、Nagle×延迟 ACK、UDP（ch11）、
+   **futex 值比对防丢唤醒**、条件变量与虚假唤醒、信号量与生产者-消费者、
+   伪共享/ABA/死锁锁序/seqlock/RCU、内存屏障定义位置对照（ch12）、
+   DMA/MMU/伪共享入册（附录 A）；
+3. **实验加固**：fork 失败检查、stdio 缓冲加餐谜题（ch04）、`pause()` 竞态脚注
+   与 sigsuspend 正解（ch08）、end_request 摘录补全 `CURRENT->dev = -1`（ch10）；
+4. **术语表扩至 77 条**，附录 B 加餐二改题为"读 0.11 的汇编：as86 与 AT&T 两套语法"；
+5. 关键史实与数值全部对照仓库源码与公开资料复核（0.01=1991-09-17、0.02=1991-10-05 等）。
+
 ## 版本说明（第二版）
 
 第二版在初版基础上做了全书增补（约 8300 行 → 约 10500 行）：

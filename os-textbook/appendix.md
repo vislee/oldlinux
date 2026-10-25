@@ -17,9 +17,11 @@
 | CAS | Compare-And-Swap | CPU 提供的原子指令：变量等于预期旧值才写入新值，是无锁编程的基石 | [ch12](ch12-并发与同步.md) |
 | CFS | Completely Fair Scheduler | 完全公平调度器（2.6.23 起）：就绪进程按 vruntime 排进红黑树，谁最"亏"谁先跑；nice 不改时间片、只改记账速度 | [ch06](ch06-CPU调度.md) |
 | CPL/DPL | Current/Descriptor Privilege Level | 当前特权级与目标门的门槛：CPL 够不着（数值大于）DPL 就被硬件拦下，`int 0x80` 的门特意把 DPL 开到 3 | [ch05](ch05-中断与系统调用.md) |
+| DMA | Direct Memory Access | 直接存储器访问：CPU 只下指令，DMA 控制器直接在设备与内存间搬数据、搬完中断一次，"中断 + DMA"是块设备标配 | [ch02](ch02-计算机硬件基础.md)、[ch10](ch10-设备与IO.md) |
 | EOI | End Of Interrupt | 中断结束回执：处理完先给 8259A 发 EOI（`outb %al,$0x20`），它才继续转发后续同级中断 | [ch05](ch05-中断与系统调用.md) |
 | epoll | epoll | Linux 的高效多路复用接口：一个内核事件对象同时盯成千上万个套接字，谁就绪叫醒谁 | [ch11](ch11-网络编程.md) |
 | futex | fast userspace mutex | 快速用户空间互斥体：无竞争时一条 CAS 在用户态解决，有竞争才陷入内核睡眠——现代 pthread 锁与 mutex 的地基 | [ch12](ch12-并发与同步.md) |
+| MMU | Memory Management Unit | 内存管理单元：CPU 里把线性地址翻译成物理地址、逐项检查 P/R/W/U/S 权限的硬件，分页与页保护的执行者 | [ch07](ch07-内存管理.md) |
 | min_vruntime | minimum vruntime | CFS 就绪队列的 vruntime 下界：新进程与睡醒进程都从它附近开始补账，防止一觉醒来反客为主 | [ch06](ch06-CPU调度.md) |
 | SIGPIPE | Signal: write on a pipe with no readers | 往无人读取的管道/套接字写入时收到的 13 号信号，默认动作是终止；服务器惯用 SIG_IGN 忽略、改看 write 返回值 | [ch08](ch08-进程间通信.md) |
 | TLB | Translation Lookaside Buffer | MMU 里缓存"页号→物理页框号"的高速部件，查页表前先问它；改页表必须冲刷它（0.11 重写 CR3 即全清） | [ch07](ch07-内存管理.md) |
@@ -69,6 +71,7 @@
 | 时钟中断 | timer interrupt | 每 10ms（0.11 的 HZ=100）由定时器芯片发一次中断，内核靠它给时间片倒计时 | [ch06](ch06-CPU调度.md) |
 | 守护进程 | daemon | 脱离终端、在后台长期服役的进程，nginx 的 master/worker 进程就是典型 | [ch11](ch11-网络编程.md) |
 | 水平触发 | level-triggered, LT | epoll 默认模式：只要缓冲区里还有数据，每次 `epoll_wait` 都会再通知你一遍 | [ch11](ch11-网络编程.md) |
+| 伪共享 | false sharing | 两个互不相干的变量挤在同一缓存行，互相把对方的缓存行打落到对方核上，性能暴跌；防法是按缓存行（64/128 字节）隔离对齐 | [ch12](ch12-并发与同步.md) |
 | 索引节点 | inode | 文件的"身份证"：大小、权限、数据块位置等元数据，文件名反而在目录项里 | [ch09](ch09-文件系统.md) |
 | 套接字 | socket | 网络通信端点的抽象，用法和文件描述符一样：open（connect/bind）、read、write | [ch11](ch11-网络编程.md) |
 | 特权级 | privilege level（Ring 0~3） | x86 的 4 级权力等级：内核住 Ring 0、应用住 Ring 3，Ring 1、2 基本闲置；跨界只能走系统调用门 | [ch02](ch02-计算机硬件基础.md) |
@@ -186,8 +189,11 @@ ngx_int_t  (*ngx_http_top_header_filter)(ngx_http_request_t *r);  /* src/http/ng
 ### 招式 5　宏函数与带参宏
 
 `#define` 不只定义常量，还能定义"长得像函数"的宏。没有函数调用开销、
-却能生成重复代码。0.11 用 4 个宏生成了全部 70 多个系统调用函数的
-外壳——不写宏就得手抄 70 遍同样的汇编。
+却能生成重复代码。0.11 的 `lib/` 用 4 个 `_syscall` 宏包出了 **6 个**系统调用
+外壳（`write`/`close`/`dup`/`execve`/`setsid`/`waitpid`；`open` 因可变参数
+只能手写内嵌汇编）——每个外壳都是同一段"装寄存器、int 0x80、判返回值"的
+重复代码，宏正是为了消灭这种手抄。（注意：72 个系统调用的**内核侧** `sys_xxx`
+函数是手写 C，与这组宏无关——宏只管用户态外壳。）
 
 ```c
 #define _syscall0(type,name)                 /* include/unistd.h:133 */
@@ -198,12 +204,13 @@ type name(void) { long __res;
     if (__res >= 0) return (type) __res;
     errno = -__res; return -1;
 }
-/* lib/write.c 里一句 _syscall3(int,write,int,fd,const char *,buf,int,n)
+/* lib/write.c 里一句 _syscall3(int,write,int,fd,const char *,buf,off_t,count)
    就"变"出完整的 write() 函数，参数经 %ebx/%ecx/%edx 传入内核 */
 ```
 
-在哪见过：`linux-0.11/include/unistd.h` 第 133~186 行的
-`_syscall0`/`_syscall1`/`_syscall2`/`_syscall3`；`linux-0.11/lib/` 全目录使用。
+在哪见过：`linux-0.11/include/unistd.h` 第 133~185 行的
+`_syscall0`/`_syscall1`/`_syscall2`/`_syscall3`；`linux-0.11/lib/` 下
+6 处使用（close.c、dup.c、execve.c、setsid.c、wait.c、write.c 各一行）。
 
 ### 招式 6　volatile 与内嵌汇编
 
@@ -242,12 +249,12 @@ if ((*page_table)&1) { ... }                      /* 只测"存在"位 */
 *table_entry |= 2;                                /* un_wp_page 写时复制：补上可写位 */
 
 /* 位图分配器：找第一个 0 比特，即第一个空闲 inode/磁盘块（fs/bitmap.c） */
-if ((j = find_first_zero(bh->b_data)) < 8192)     /* set_bit/clear_bit 定义在 string.h */
+if ((j = find_first_zero(bh->b_data)) < 8192)     /* set_bit/clear_bit/find_first_zero 三个宏定义在 fs/bitmap.c 第 19/25/31 行（GCC { } 语句表达式宏） */
 ```
 
 在哪见过：`linux-0.11/kernel/signal.c`（信号位图）、`linux-0.11/mm/memory.c`
 （页表项标志，`put_page()`/`un_wp_page()`）、`linux-0.11/fs/bitmap.c`
-（inode 与块位图）。
+（inode 与块位图，三个位运算宏也在这里）。
 
 ### 招式 8　offsetof 与"从成员反推宿主"
 
@@ -320,7 +327,7 @@ static void set_origin(void) { ... }  /* 本文件私有的函数 */
 /* 正向（加法）：&ev->rbtree_key 即"首地址 + offsetof"——把内嵌节点交给通用容器 */
 ngx_rbtree_delete((ngx_rbtree_t **) &ngx_event_timer_rbtree,
                   &ngx_event_timer_sentinel,
-                  (ngx_rbtree_t *) &ev->rbtree_key);   /* src/event/ngx_event_timer.c:168 */
+                  (ngx_rbtree_t *) &ev->rbtree_key);   /* src/event/ngx_event_timer.c:166~169 */
 
 /* 反向（减法，招式 8）：成员地址 - offsetof = 宿主首地址，同一对结构的回程票 */
 ev = (ngx_event_t *) ((char *) node - offsetof(ngx_event_t, rbtree_key));  /* 同文件 135~136 行 */
@@ -333,19 +340,22 @@ ev = (ngx_event_t *) ((char *) node - offsetof(ngx_event_t, rbtree_key));  /* �
 再把它当作一条等待队列交出去。Linux 内核后来把这套双向玩法封装成标准宏
 `container_of`。
 
-### 加餐二　读 0.11 的 AT&T 汇编（GNU 语法）
+### 加餐二　读 0.11 的汇编：as86 与 AT&T 两套语法
 
-0.11 的 boot/、kernel/ 下散着十来个 .s 文件，用的是 GNU as 的 AT&T 风格，
-和课堂常见的 Intel 汇编正好"拧着"：① **源、目的相反**——`mov %ax,%ds`
-读作"把 ax 装进 ds"，Intel 写成 mov ds, ax；② 寄存器加 `%`、立即数加 `$`；
-③ 助记符带 `l` 后缀表 32 位——`movl` 的 l 即 long；④ 注释用 `#`（而
-bootsect.s、setup.s 这些 16 位实模式文件 GNU as 默认接受 `!`）。
+0.11 的 `.s` 汇编文件其实分**两套语法、两个汇编器**——先把户口分清，读起来
+才不迷路：`bootsect.s`、`setup.s` 由 **as86** 汇编（bin86 工具链，见
+`linux-0.11/Makefile` 第 7 行 `AS86 = as86 -0 -a`），**Intel 风格**、注释用
+`!`、立即数写 `#0x10`；从 `head.s` 起（含 `kernel/` 下全部 .s 文件）才交给
+**GNU as（gas）**（Makefile 第 10 行 `AS = gas`），用 **AT&T 风格**，和课堂
+常见的 Intel 汇编正好"拧着"：① **源、目的相反**——`mov %ax,%ds` 读作
+"把 ax 装进 ds"，Intel 写成 mov ds, ax；② 寄存器加 `%`、立即数加 `$`；
+③ 助记符带 `l` 后缀表 32 位——`movl` 的 l 即 long；④ 注释用 `#`。
 
 ```asm
-movl $0x10,%eax    # l=32 位；$0x10 是立即数；注释以 # 起（boot/head.s:26）
+movl $0x10,%eax    # gas/AT&T：l=32 位；$0x10 是立即数；注释以 # 起（boot/head.s:26）
 mov %ax,%ds        # 方向与 Intel 相反：源在前、目的在后——把 ax 装进 ds（head.s:27）
-jmpi 0,8           ! "段:偏移"远跳转：跳到选择子 8 那个段的偏移 0——
-                   ! 保护模式的第一次换挡（boot/setup.s:193）
+jmpi 0,8           ! as86/Intel："段:偏移"远跳转——跳到选择子 8 那个段的偏移 0，
+                   ! 保护模式的第一次换挡（boot/setup.s:193，注意注释是感叹号）
 ```
 
 在哪见过：`boot/head.s` 与 `boot/setup.s` 全文；第 5 章出现过的
@@ -365,7 +375,7 @@ jmpi 0,8           ! "段:偏移"远跳转：跳到选择子 8 那个段的偏�
 | `linux-0.00` | 1991 年中 | 约 500 行 | 内核雏形：两个任务来回切换，目录里的 `Image` 是当年可启动镜像 | [第 1 章](ch01-操作系统导论.md)、[第 3 章](ch03-系统启动.md) |
 | `linux-0.01` | 1991.9 | 约 1 万行 | 第一个正式版，无网络、注释稀少，"内核可以很小" | [第 1 章](ch01-操作系统导论.md) |
 | `linux-0.11` | 1991.12 | 约 1.3 万行 | 五脏俱全的稳定版：进程、分页、文件系统、驱动全齐——**本教材主力** | [第 2~10 章](ch02-计算机硬件基础.md) |
-| `linux-0.12` | 1992.1 | 约 1.9 万行 | 引入数学协处理器模拟与大量修复 | 各章延伸阅读 |
+| `linux-0.12` | 1992.1 | 约 1.7 万行 | 引入数学协处理器模拟与大量修复 | 各章延伸阅读 |
 | `linux-0.98` | 1992 | 约 5.6 万行 | 网络子系统并入前的成长期版本 | 对照阅读 |
 | `linux-1.0` | 1994 | 约 17 万行 | 第一个正式发布的 1.0，模块化雏形已现 | 对照阅读 |
 | `linux-1.2.0` | 1995 | 约 28 万行 | 支持更多硬件平台 | 对照阅读 |

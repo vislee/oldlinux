@@ -26,7 +26,7 @@
 1991 年的主流外存是软盘。一张 1.44 MB 软盘约合 1.5×10⁶ 字节，持续传输速率
 约 250 kbit/s（约 31 KB/s）。如果 CPU 用轮询方式读完整张盘：
 
-> **1.5×10⁶ 字节 ÷ 31×10³ 字节/秒 ≈ 47 秒。** 这 47 秒里 CPU 一圈一圈地查
+> **1.5×10⁶ 字节 ÷ 31×10³ 字节/秒 ≈ 48 秒。** 这 48 秒里 CPU 一圈一圈地查
 > "好了没？好了没？"，什么正事都干不了，你的 shell、别的进程全部冻结——
 > 就读个软盘而已。
 
@@ -49,7 +49,11 @@
 > **一个如实的说明**：0.11 的硬盘驱动其实是"中断驱动 + 程序搬运"——数据到来
 > 时由 CPU 亲手从控制器端口搬进内存（`read_intr` 里的 `port_read`），没有用
 > DMA；反倒是不起眼的软盘驱动用了 DMA（`floppy.c` 的 `setup_DMA`）。技术史
-> 从来不是越新的设备越先进。
+> 从来不是越新的设备越先进。另外，10.2 表里"轮询"一格的两个活体标本都在
+> `hd.c`：`controller_ready()`（第 162~167 行）每次发命令前轮询状态寄存器
+> 最多 **10000** 次；写盘路径在 `hd_out` 之后还要原地轮询 DRQ 位最多 **3000**
+> 次（第 329~335 行，等控制器腾出内部缓冲才 `port_write`）——连"中断驱动
+> 为主"的驱动里，轮询也仍在犄角旮旯里站岗。
 
 ## 10.3 核心概念 II：Linux 的设备观——一切皆文件
 
@@ -100,7 +104,15 @@
 
 为什么区分？因为用法天差地别：键盘读一个字节就够，磁盘一次读 1 KB 才划算；
 磁盘读过的块很可能马上又被读（第 9 章的缓冲区缓存），键盘输入没人想缓存。
-**驱动按数据形态分类，而非按设备大小分类。**
+**驱动按数据形态分类，而非按设备大小分类。**（补一句现代知识：Linux 还有
+**第三类——网络设备**，它不对应任何 `/dev` 文件，走 socket 接口访问——
+第 11 章主角；0.11 没有网络栈，所以设备户口本里没有它。）
+
+顺带把 10.3.1 的"路由"落到代码上：字符设备的分发表叫 **crw_table**
+（`fs/char_dev.c` 第 85 行），按主设备号索引，`rw_char()`（第 95 行）查表
+调用——`NULL` 表示设备不存在，`rw_ttyx` 接终端。这张表就是教材里说的
+**设备开关表（device switch table）**：驱动统一接口最直观的 0.11 实现，
+第 9 章 `sys_read` 的 if-else 在这里换了最后一班岗。
 
 ## 10.4 源码导读一：块设备——一次 bread 的完整旅程
 
@@ -194,6 +206,9 @@ struct buffer_head * bread(int dev,int block)      /* fs/buffer.c:267 */
 `hd_out()`（第 180 行）先 `do_hd = intr_addr`——把"中断来了以后该调谁"
 记到一个全局函数指针上——再连写 7 个端口发出命令。然后呢？**然后函数返回，
 CPU 走了**，磁盘在转，CPU 在跑你的 shell——这就是 10.2 节说的中断驱动。
+（唯一的例外是写路径：`do_hd_request` 里发完 WRITE 命令后，CPU 要原地轮询
+DRQ 位至多 3000 次（hd.c 第 329~335 行），等控制器腾出内部缓冲才
+`port_write` 出 512 字节——10.2 表里那次轮询说的就是它。）
 数据就绪时，中断门（`kernel/system_call.s` 第 221 行）把控制权交回来，
 它有个绝妙的间接跳转：
 
@@ -229,7 +244,7 @@ static void read_intr(void)
 
 对着原文走一遍循环的五步：
 
-1. **验收**：`win_result()`（第 168 行）读状态寄存器 0x1f7 检查出错位；出错
+1. **验收**：`win_result()`（第 169 行）读状态寄存器 0x1f7 检查出错位；出错
    就交给 `bad_rw_intr()` 记账（错满 `MAX_ERRORS` 次放弃本请求，错到一半就
    先复位控制器再战），随后调 `do_hd_request()` 转向队列里的下一个请求。
 2. **搬数据**：`port_read(HD_DATA,CURRENT->buffer,256)`——从数据端口 0x1f0
@@ -272,15 +287,21 @@ static void write_intr(void)
 
 ### 10.4.4 闭环：end_request 把所有人叫醒
 
-`end_request()`（`blk.h` 第 109 行）是这次旅程的收官，它一口气唤醒三拨人：
+`end_request()`（`blk.h` 第 109 行）是这次旅程的收官，它一口气唤醒三拨人
+（原文主干，错误打印与 `DEVICE_OFF` 略）：
 
 ```c
 	CURRENT->bh->b_uptodate = uptodate;   /* 数据有效 */
 	unlock_buffer(CURRENT->bh);           /* → wake_up(&bh->b_wait)：叫醒 bread 里睡的进程A */
 	wake_up(&CURRENT->waiting);           /* 叫醒直接等请求的进程（分页用） */
 	wake_up(&wait_for_request);           /* 叫醒等空闲请求单的进程 */
+	CURRENT->dev = -1;                    /* 请求单用完，标记"空闲"（blk.h 第 123 行） */
 	CURRENT = CURRENT->next;              /* 队列往后走 */
 ```
+
+最后那个 `CURRENT->dev = -1` 别小看：10.4.2 的 `make_request` 正是靠
+`req->dev < 0` 来认"哪张单子空着"（ll_rw_blk.c 第 121 行）——**释放的实质
+就是把这个标记复位**，整个"借单 → 用单 → 还单"的闭环才合拢。
 
 还记得 10.4.1 里在 `wait_on_buffer` 睡着的进程 A 吗？就是这里醒的。
 **系统调用发起 → 请求排队 → CPU 干别的事 → 中断搬运数据 → 唤醒进程**——
@@ -297,12 +318,22 @@ static void write_intr(void)
 	addr = rd_start + (CURRENT->sector << 9);
 	len = CURRENT->nr_sectors << 9;
 	if (CURRENT-> cmd == WRITE) {
-		(void ) memcpy(addr, CURRENT->buffer, len);   /* 就是 memcpy！ */
+		(void ) memcpy(addr,
+			      CURRENT->buffer,
+			      len);
 	} else if (CURRENT->cmd == READ) {
-		(void) memcpy(CURRENT->buffer, addr, len);
-	}
+		(void) memcpy(CURRENT->buffer, 
+			      addr,
+			      len);
+	} else
+		panic("unknown ramdisk-command");
 	end_request(1);
+	goto repeat;          /* 回头处理队列里的下一个请求 */
 ```
+
+（ramdisk.c 第 29~47 行的主干，仅省略了开头的越界检查——次设备号必须是 1、
+读写不得越过内存盘边界，否则 `end_request(0)` 记失败。和所有驱动一样，
+干完一张单子要 `goto repeat` 接着问"下一张呢？"）
 
 没有端口、没有中断、没有等待——`memcpy` 是纳秒级的。对照 `read_intr`
 那一套，你会瞬间明白：**驱动的全部复杂性都来自设备的慢**。
@@ -529,7 +560,17 @@ key_map:
 0.11 的"下半部"很朴素：唤醒进程，让它在调度器安排下继续。现代内核把它机制化
 了——`softirq`（`linux-2.6.35/kernel/softirq.c`）和 `tasklet`（`interrupt.h`
 第 450 行的 `tasklet_struct`）：中断收完数，登记一个"待办的下半部"，中断返回
-前顺手执行；网络收包（NET_RX_SOFTIRQ）就是这么干的。术语在进化，思想没变。
+前顺手执行；网络收包（NET_RX_SOFTIRQ）就是这么干的。三件套还缺一位：
+**workqueue**（`kernel/workqueue.c`）——前两位跑在**中断上下文**（不能睡），
+workqueue 把活儿交给**内核线程**跑在进程上下文，能睡、能干慢活，正好承接
+第 5 章"中断里不能睡"的铁律。术语在进化，思想没变。
+
+> **顺手补两个经典考点**：**缓冲的分类**——单缓冲（一段轮流用）、双缓冲
+> （一读一写交替）、循环缓冲（0.11 的管道缓冲就是天然环形，第 8 章）、
+> 缓冲池（第 9 章的 `fs/buffer.c` 就是共享缓冲池的标准答案）；
+> **SPOOLing（假脱机）**——用磁盘排队把"独占设备"变成"可共享"：打印机
+> 同时收多份文档，先排队落盘、逐份吐出，`linux-2.6.35/drivers/char/lp.c`
+> 就是这个队列的内核侧。两者都是"拿空间与间接换公平与效率"的老智慧。
 
 ## 10.7 中断收尾：EOI 与 8259A
 
@@ -821,7 +862,8 @@ sane` 还原。
 7. 行规程 `copy_to_cooked`：回显、退格、回车转 LF、Ctrl-C 变信号，凑齐一行
    才 `data++` 记账、才唤醒读者——"行缓冲"从名词变成了代码。
 8. 中断处理分两半：上半部快收数、下半部慢慢加工。0.11 用"唤醒进程"当下半部，
-   现代内核机制化为 softirq/tasklet。
+   现代内核机制化为 softirq/tasklet（中断上下文）与 workqueue（进程上下文，可睡）；
+   设备开关表（crw_table）是驱动统一接口的 0.11 落点，网络设备是现代的第三类设备。
 9. 每个硬件中断处理完必须发 EOI（命令字节 0x20 写主片 0x20 / 从片 0xA0）；
    两片 8259A 经 IRQ2 级联出 15 路，向量号 = 0x20 + IRQ；忘发则线永远占线。
 10. tty 三个队列（read_q / write_q / secondary）加 `interruptible_sleep_on`：
